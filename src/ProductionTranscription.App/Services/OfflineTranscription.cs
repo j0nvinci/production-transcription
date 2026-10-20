@@ -18,14 +18,13 @@ public sealed class OfflineTranscription : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Model _model;
     public event Action<string>? Diagnostic;
-    private long _receivedBlocks;
     public OfflineTranscription(string modelPath, SourceConfig[] sources, Action<string, string> onTranscript)
     {
         Vosk.Vosk.SetLogLevel(-1);
         _model = new Model(modelPath);
         foreach (var source in sources)
         {
-            var queue = Channel.CreateBounded<(float[] samples, int rate)>(new BoundedChannelOptions(24)
+            var queue = Channel.CreateBounded<(float[] samples, int rate)>(new BoundedChannelOptions(256)
             {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = true,
@@ -36,15 +35,31 @@ public sealed class OfflineTranscription : IDisposable
                 try
                 {
                     using var recognizer = new VoskRecognizer(_model, 16000f);
+                    int pollCount = 0;
+                    string lastPartial = "";
                     while (await queue.Reader.WaitToReadAsync(_stop.Token))
                         while (queue.Reader.TryRead(out var block))
                         {
                             var converted = Resample(block.samples, block.rate, 16000);
                             if (converted.Length == 0) continue;
                             if (recognizer.AcceptWaveform(converted, converted.Length))
+                            {
                                 Publish(recognizer.Result(), source.Name, onTranscript);
-                            else if (Interlocked.Increment(ref _receivedBlocks) % 150 == 0)
-                                Diagnostic?.Invoke($"Audio is reaching Vosk ({source.Name}); waiting for an utterance boundary.");
+                                lastPartial = "";
+                            }
+                            else if (++pollCount % 30 == 0)
+                            {
+                                using var partialDoc = JsonDocument.Parse(recognizer.PartialResult());
+                                string partial = partialDoc.RootElement.TryGetProperty("partial", out var value)
+                                    ? value.GetString() ?? "" : "";
+                                if (partial.Length > 0 && partial != lastPartial)
+                                {
+                                    lastPartial = partial;
+                                    Diagnostic?.Invoke($"Hearing [{source.Name}]: {partial} (live preview)");
+                                }
+                                else if (partial.Length == 0 && pollCount % 150 == 0)
+                                    Diagnostic?.Invoke($"Audio received on {source.Name}; no recognized words yet.");
+                            }
                         }
                 }
                 catch (OperationCanceledException) { }
