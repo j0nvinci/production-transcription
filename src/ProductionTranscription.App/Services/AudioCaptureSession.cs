@@ -14,6 +14,10 @@ public sealed class AudioCaptureSession : IDisposable
     private int _channels;
     private bool _running;
     public event Action<string>? CaptureError;
+    /// <summary>Raised from the capture callback with an independent, gained mono block for each enabled source.</summary>
+    public event Action<SourceConfig, float[], int>? SourceAudioAvailable;
+    private SourceConfig[] _sources = Array.Empty<SourceConfig>();
+    private int _sampleRate;
 
     public void Start(AudioBackend backend, string deviceId, IReadOnlyCollection<SourceConfig> sources)
     {
@@ -23,6 +27,7 @@ public sealed class AudioCaptureSession : IDisposable
         if (sources.Any(s => s.Enabled && s.InputNumber < 1))
             throw new InvalidOperationException("Input numbers must start at 1.");
         _peaks.Clear();
+        _sources = sources.Where(s => s.Enabled).ToArray();
         try
         {
             if (backend == AudioBackend.Asio)
@@ -33,7 +38,8 @@ public sealed class AudioCaptureSession : IDisposable
                     throw new InvalidOperationException($"Requested input {count}, but the ASIO device has only {_asio.DriverInputChannelCount} inputs.");
                 _channels = count; // ASIO captures channels 1..highest used, while meters only track mapped channels.
                 // 48 kHz is the initial capture rate; device-rate negotiation is a follow-up.
-                _asio.InitRecordAndPlayback(null, count, 48000);
+                _sampleRate = 48000;
+                _asio.InitRecordAndPlayback(null, count, _sampleRate);
                 _asio.AudioAvailable += OnAsioAudio;
                 _asio.PlaybackStopped += OnAsioStopped;
                 _asio.Play();
@@ -44,6 +50,7 @@ public sealed class AudioCaptureSession : IDisposable
                 var endpoint = enumerator.GetDevice(deviceId);
                 _wasapi = new WasapiCapture(endpoint);
                 _channels = _wasapi.WaveFormat.Channels;
+                _sampleRate = _wasapi.WaveFormat.SampleRate;
                 int highest = sources.Where(s => s.Enabled).Max(s => s.InputNumber);
                 if (highest > _channels)
                     throw new InvalidOperationException($"Requested input {highest}, but the WASAPI endpoint exposes only {_channels} channels.");
@@ -78,8 +85,7 @@ public sealed class AudioCaptureSession : IDisposable
     {
         // NAudio converts the driver's native buffers to interleaved normalized floats.
         float[] data = e.GetAsInterleavedSamples();
-        for (int index = 0; index < data.Length; index++)
-            Observe(index % _channels, data[index]);
+        ProcessInterleaved(data, data.Length / _channels);
         e.WrittenToOutputBuffers = false;
     }
 
@@ -89,7 +95,10 @@ public sealed class AudioCaptureSession : IDisposable
         var format = _wasapi.WaveFormat;
         int bytesPerSample = format.BitsPerSample / 8;
         int frameSize = format.BlockAlign;
-        for (int offset = 0; offset + frameSize <= e.BytesRecorded; offset += frameSize)
+        int frameCount = e.BytesRecorded / frameSize;
+        var blocks = new float[_channels][];
+        for (int ch = 0; ch < _channels; ch++) blocks[ch] = new float[frameCount];
+        for (int offset = 0, frame = 0; offset + frameSize <= e.BytesRecorded; offset += frameSize, frame++)
         {
             for (int ch = 0; ch < format.Channels; ch++)
             {
@@ -103,7 +112,38 @@ public sealed class AudioCaptureSession : IDisposable
                     _ => 0
                 };
                 Observe(ch, sample);
+                blocks[ch][frame] = sample;
             }
+        }
+        PublishBlocks(blocks);
+    }
+    private void ProcessInterleaved(float[] samples, int frames)
+    {
+        var blocks = new float[_channels][];
+        for (int ch = 0; ch < _channels; ch++) blocks[ch] = new float[frames];
+        for (int frame = 0; frame < frames; frame++)
+            for (int ch = 0; ch < _channels; ch++)
+            {
+                float sample = samples[frame * _channels + ch];
+                Observe(ch, sample);
+                blocks[ch][frame] = sample;
+            }
+        PublishBlocks(blocks);
+    }
+    private void PublishBlocks(float[][] channelBlocks)
+    {
+        var handler = SourceAudioAvailable;
+        if (handler is null) return;
+        foreach (var source in _sources)
+        {
+            int channel = source.InputNumber - 1;
+            if (channel < 0 || channel >= channelBlocks.Length) continue;
+            var raw = channelBlocks[channel];
+            var gained = new float[raw.Length];
+            float factor = (float)Math.Pow(10, Math.Clamp(source.GainDb, -24, 30) / 20);
+            for (int i = 0; i < raw.Length; i++)
+                gained[i] = Math.Clamp(raw[i] * factor, -1f, 1f);
+            handler(source, gained, _sampleRate);
         }
     }
     private static float Sample24(byte[] b, int i)
@@ -152,6 +192,7 @@ public sealed class AudioCaptureSession : IDisposable
             _wasapi.Dispose(); _wasapi = null;
         }
         _peaks.Clear();
+        _sources = Array.Empty<SourceConfig>();
     }
     public void Dispose() => Stop();
 }
