@@ -12,6 +12,7 @@ public partial class SettingsWindow : Window
     private AppSettings _settings = new();
     private bool _initialized;
     private bool _refreshingDevices;
+    private bool _refreshingModels;
     private int? _detectedChannels;
     private readonly AudioCaptureSession _capture = new();
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
@@ -32,6 +33,7 @@ public partial class SettingsWindow : Window
         RefreshSourceMeters();
         _initialized = true;
         RefreshDevices();
+        RefreshModels();
         _capture.CaptureError += message => Dispatcher.BeginInvoke(() =>
         {
             if (_capturing) { StopCapture(); CaptureStatus.Text = "Capture stopped: " + message; }
@@ -49,6 +51,48 @@ public partial class SettingsWindow : Window
             else { StopCapture(); SaveSettings(); }
         };
     }
+    private sealed record InstalledModel(string Id, string Name);
+    private void RefreshModelsClicked(object sender, RoutedEventArgs e)
+    {
+        if (!_capturing && !_starting) RefreshModels();
+    }
+    private void RefreshModels()
+    {
+        if (!_initialized || _starting || _capturing) return;
+        _refreshingModels = true;
+        try
+        {
+            string root = System.IO.Path.Combine(AppContext.BaseDirectory, "models");
+            var options = System.IO.Directory.Exists(root)
+                ? System.IO.Directory.GetDirectories(root)
+                    .Where(p => System.IO.Directory.Exists(System.IO.Path.Combine(p, "am")) &&
+                                System.IO.Directory.Exists(System.IO.Path.Combine(p, "conf")) &&
+                                System.IO.Directory.Exists(System.IO.Path.Combine(p, "graph")))
+                    .Select(p => new InstalledModel(System.IO.Path.GetFileName(p), "Vosk · " + System.IO.Path.GetFileName(p)))
+                    .OrderBy(p => p.Name).ToList()
+                : new List<InstalledModel>();
+            ModelBox.ItemsSource = options;
+            ModelBox.SelectedValue = _settings.ModelName;
+            if (ModelBox.SelectedItem is null && options.Count > 0)
+            {
+                ModelBox.SelectedItem = options[0];
+                _settings.ModelName = options[0].Id;
+            }
+            ModelBox.IsEnabled = options.Count > 0;
+            if (options.Count == 0)
+                CaptureStatus.Text = "No installed Vosk models detected. Extract a Vosk model into the models directory.";
+        }
+        finally { _refreshingModels = false; }
+        SaveSettings();
+    }
+    private void ModelChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized || _refreshingModels || _capturing || _starting ||
+            ModelBox.SelectedItem is not InstalledModel selection) return;
+        _settings.ModelName = selection.Id;
+        SaveSettings();
+    }
+
     private void SettingsChanged(object sender, RoutedEventArgs e)
     {
         if (!_initialized || _capturing) return;
@@ -243,29 +287,24 @@ public partial class SettingsWindow : Window
                     return;
                 }
             }
-            string modelsRoot = System.IO.Path.Combine(AppContext.BaseDirectory, "models");
-            var availableModels = System.IO.Directory.Exists(modelsRoot)
-                ? System.IO.Directory.GetDirectories(modelsRoot, "vosk-model*")
-                    .Where(d => System.IO.Directory.Exists(System.IO.Path.Combine(d, "am")) &&
-                                System.IO.Directory.Exists(System.IO.Path.Combine(d, "conf")))
-                    .ToArray()
-                : Array.Empty<string>();
-            if (availableModels.Length == 0)
+            if (ModelBox.SelectedItem is not InstalledModel chosen)
             {
-                CaptureStatus.Text = "No Vosk model found. Extract a Vosk model folder inside the models directory.";
+                CaptureStatus.Text = "Select an installed Vosk model in Settings.";
                 StatusChanged?.Invoke(CaptureStatus.Text);
                 return;
             }
-            // Prefer the full model when installed, otherwise preserve the small-model default.
-            string modelPath = availableModels.FirstOrDefault(d =>
-                System.IO.Path.GetFileName(d).Equals("vosk-model-en-us-0.22", StringComparison.OrdinalIgnoreCase))
-                ?? availableModels.FirstOrDefault(d =>
-                System.IO.Path.GetFileName(d).Equals("vosk-model-small-en-us-0.15", StringComparison.OrdinalIgnoreCase))
-                ?? availableModels[0];
+            string modelPath = System.IO.Path.Combine(AppContext.BaseDirectory, "models", chosen.Id);
+            if (!System.IO.Directory.Exists(modelPath))
+            {
+                CaptureStatus.Text = "Selected model is missing; refresh the model list.";
+                StatusChanged?.Invoke(CaptureStatus.Text);
+                return;
+            }
             _starting = true;
             StartCaptureButton.IsEnabled = false;
             BackendBox.IsEnabled = false;
             DeviceBox.IsEnabled = false;
+            ModelBox.IsEnabled = false;
             CaptureStatus.Text = "Loading offline recognition model: " + System.IO.Path.GetFileName(modelPath) + " …";
             StatusChanged?.Invoke(CaptureStatus.Text);
             var selectedSources = _settings.Sources.Where(s => s.Enabled).ToArray();
@@ -298,6 +337,7 @@ public partial class SettingsWindow : Window
             StartCaptureButton.IsEnabled = true;
             BackendBox.IsEnabled = true;
             DeviceBox.IsEnabled = true;
+            ModelBox.IsEnabled = true;
             _capture.SourceAudioAvailable -= OnSourceAudio;
             _transcription?.Dispose();
             _transcription = null;
@@ -321,6 +361,7 @@ public partial class SettingsWindow : Window
         StopCaptureButton.IsEnabled = false;
         BackendBox.IsEnabled = true;
         DeviceBox.IsEnabled = true;
+        ModelBox.IsEnabled = ModelBox.Items.Count > 0;
         foreach (var meter in _meters) meter.Level = 0;
         CaptureStatus.Text = "Capture stopped";
     }

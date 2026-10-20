@@ -37,6 +37,14 @@
      </DockPanel>
     </StackPanel>
    </WrapPanel>
+   <DockPanel Margin="0,0,0,12">
+    <Button DockPanel.Dock="Right" Content="Refresh models" Click="RefreshModelsClicked" Padding="8,4" Margin="8,0,0,0"/>
+    <StackPanel>
+     <TextBlock Text="Offline speech recognition model" Margin="0,0,0,5"/>
+     <ComboBox x:Name="ModelBox" DisplayMemberPath="Name" SelectedValuePath="Id"
+        Width="370" HorizontalAlignment="Left" SelectionChanged="ModelChanged"/>
+    </StackPanel>
+   </DockPanel>
    <WrapPanel Margin="0,0,0,8">
     <Button x:Name="StartCaptureButton" Content="Start capture" Click="StartCaptureClicked" Padding="12,6" Margin="0,0,8,0"/>
     <Button x:Name="StopCaptureButton" Content="Stop" Click="StopCaptureClicked" Padding="12,6" Margin="0,0,8,0" IsEnabled="False"/>
