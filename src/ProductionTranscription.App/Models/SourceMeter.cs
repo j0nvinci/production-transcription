@@ -1,3 +1,5 @@
+using Brushes = System.Windows.Media.Brushes;
+using ColorConverter = System.Windows.Media.ColorConverter;
 using System.ComponentModel;
 using System.Windows.Media;
 using System.Runtime.CompilerServices;

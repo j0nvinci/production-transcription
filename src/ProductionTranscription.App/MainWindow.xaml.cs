@@ -1,3 +1,4 @@
+using Brushes = System.Windows.Media.Brushes;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Data;
