@@ -16,7 +16,7 @@
      <TextBlock Text="◉" FontSize="25" Foreground="#59E0C0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Border>
     <StackPanel VerticalAlignment="Center">
-     <TextBlock Text="PRODUCTION" Foreground="#59E0C0" FontWeight="Bold" FontSize="10" LetterSpacing="2"/>
+     <TextBlock Text="PRODUCTION" Foreground="#59E0C0" FontWeight="Bold" FontSize="10"/>
      <TextBlock Text="Transcription" Foreground="#F3F8FE" FontWeight="SemiBold" FontSize="25"/>
     </StackPanel>
    </StackPanel>
