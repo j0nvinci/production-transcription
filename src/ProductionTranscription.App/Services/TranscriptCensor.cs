@@ -86,6 +86,24 @@ public sealed class TranscriptCensor
         }
     }
 
+        public IEnumerable<(int Start, int Length, string Original)> FindMatches(string text)
+    {
+        var pattern = Volatile.Read(ref _pattern);
+        if (pattern is null || string.IsNullOrEmpty(text)) yield break;
+        MatchCollection matches;
+        try { matches = pattern.Matches(text); }
+        catch (RegexMatchTimeoutException) { yield break; }
+        // Enumerate defensively: a malformed or slow third-party list must not break the UI.
+        var safe = new List<(int, int, string)>();
+        try
+        {
+            foreach (Match m in matches)
+                if (m.Success && m.Length > 0) safe.Add((m.Index, m.Length, m.Value));
+        }
+        catch (RegexMatchTimeoutException) { yield break; }
+        foreach (var m in safe) yield return m;
+    }
+
         public string Censor(string text)
     {
         var pattern = Volatile.Read(ref _pattern);

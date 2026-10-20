@@ -28,7 +28,6 @@ public partial class MainWindow : Window
         _ = _censor.UpdateCommunityListAsync();
         _settingsWindow.PartialTranscriptReceived += (source, words) =>
         {
-            words = _censor.Censor(words);
             if (string.IsNullOrWhiteSpace(words))
             {
                 if (_drafts.Remove(source, out var stale)) _messages.Remove(stale);
@@ -36,7 +35,7 @@ public partial class MainWindow : Window
             }
             if (!_drafts.TryGetValue(source, out var item))
             {
-                item = new ChatMessage(source, words, DateTime.Now.ToString("HH:mm:ss"), ColorFor(source), true);
+                item = new ChatMessage(source, words, DateTime.Now.ToString("HH:mm:ss"), ColorFor(source), true, _censor);
                 _drafts[source] = item;
                 _messages.Add(item);
             }
@@ -53,7 +52,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                item = new ChatMessage(source, words, DateTime.Now.ToString("HH:mm:ss"), ColorFor(source), false);
+                item = new ChatMessage(source, words, DateTime.Now.ToString("HH:mm:ss"), ColorFor(source), false, _censor);
                 _messages.Add(item);
             }
             while (_messages.Count > 500) _messages.RemoveAt(0);
@@ -94,6 +93,7 @@ public partial class MainWindow : Window
         public string Source { get; }
         public string Time { get; }
         public Brush Accent { get; }
+        public Services.TranscriptCensor Filter { get; }
         private string _words;
         public string Words
         {
@@ -107,9 +107,9 @@ public partial class MainWindow : Window
             set { _isPartial = value; Changed(); Changed(nameof(State)); }
         }
         public string State => IsPartial ? "Listening…" : "";
-        public ChatMessage(string source, string words, string time, Brush accent, bool partial)
+        public ChatMessage(string source, string words, string time, Brush accent, bool partial, Services.TranscriptCensor filter)
         {
-            Source = source; _words = words; Time = time; Accent = accent; _isPartial = partial;
+            Source = source; _words = words; Time = time; Accent = accent; _isPartial = partial; Filter = filter;
         }
         public event PropertyChangedEventHandler? PropertyChanged;
         private void Changed([CallerMemberName] string? name = null) =>
