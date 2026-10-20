@@ -40,6 +40,7 @@
         <TextBlock Text="{Binding Time}" DockPanel.Dock="Right" HorizontalAlignment="Right" Foreground="#98AABD" FontSize="11"/>
        </DockPanel>
        <TextBlock Text="{Binding Words}" TextWrapping="Wrap" FontSize="15" Foreground="#F2F5FA"/>
+       <TextBlock Text="{Binding State}" FontSize="11" Foreground="#96A6B8" FontStyle="Italic"/>
       </StackPanel>
      </Border>
     </DataTemplate>

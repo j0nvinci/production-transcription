@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
     private bool _capturing;
     private OfflineTranscription? _transcription;
     public event Action<string, string>? TranscriptReceived;
+    public event Action<string, string>? PartialTranscriptReceived;
     public event Action<string>? StatusChanged;
     private bool _shuttingDown;
     public SettingsWindow()
@@ -252,6 +253,10 @@ public partial class SettingsWindow : Window
                 {
                     TranscriptReceived?.Invoke(source, words);
                 }));
+            _transcription.PartialRecognized += (source, words) => Dispatcher.BeginInvoke(() =>
+            {
+                if (_capturing) PartialTranscriptReceived?.Invoke(source, words);
+            });
             _transcription.Diagnostic += message => Dispatcher.BeginInvoke(() =>
             {
                 if (_capturing) CaptureStatus.Text = message;

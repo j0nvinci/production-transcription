@@ -18,6 +18,7 @@ public sealed class OfflineTranscription : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Model _model;
     public event Action<string>? Diagnostic;
+    public event Action<string, string>? PartialRecognized;
     public OfflineTranscription(string modelPath, SourceConfig[] sources, Action<string, string> onTranscript)
     {
         Vosk.Vosk.SetLogLevel(-1);
@@ -62,16 +63,17 @@ public sealed class OfflineTranscription : IDisposable
                             {
                                 Publish(recognizer.Result(), source.Name, onTranscript);
                                 lastPartial = "";
+                                PartialRecognized?.Invoke(source.Name, "");
                             }
-                            else if (pollCount % 30 == 0)
+                            else if (pollCount % 6 == 0)
                             {
                                 using var partialDoc = JsonDocument.Parse(recognizer.PartialResult());
                                 string partial = partialDoc.RootElement.TryGetProperty("partial", out var value)
                                     ? value.GetString() ?? "" : "";
-                                if (partial.Length > 0 && partial != lastPartial)
+                                if (partial != lastPartial)
                                 {
                                     lastPartial = partial;
-                                    Diagnostic?.Invoke($"Hearing [{source.Name}]: {partial} (live preview)");
+                                    PartialRecognized?.Invoke(source.Name, partial);
                                 }
 
                             }
