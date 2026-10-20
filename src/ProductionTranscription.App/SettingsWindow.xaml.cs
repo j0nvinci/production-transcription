@@ -1,3 +1,8 @@
+using MessageBox = System.Windows.MessageBox;
+using Brushes = System.Windows.Media.Brushes;
+using SystemColors = System.Windows.SystemColors;
+using ColorConverter = System.Windows.Media.ColorConverter;
+using Button = System.Windows.Controls.Button;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
