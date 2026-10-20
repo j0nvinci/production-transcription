@@ -32,7 +32,7 @@ public partial class MainWindow : Window
         {
             foreach (var meter in _meters)
                 meter.Level = _capturing && meter.Source.Enabled ?
-                    Math.Max(_capture.TakePeak(meter.Source.InputNumber) * 100, meter.Level * .65) : 0;
+                    Math.Max(Math.Min(100, _capture.TakePeak(meter.Source.InputNumber) * Math.Pow(10, meter.Source.GainDb / 20.0) * 100), meter.Level * .65) : 0;
         };
         Closing += (_, _) => { StopCapture(); SaveSettings(); };
     }
@@ -114,6 +114,10 @@ public partial class MainWindow : Window
             DeviceStatus.Text = "Unable to inspect this device: " + ex.Message +
                 ". ASIO drivers may be busy in another application.";
         }
+    }
+    private void GainChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_initialized) SaveSettings();
     }
     private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized && !_capturing) SaveSettings(); }
     private void SourceInputLostFocus(object sender, RoutedEventArgs e)

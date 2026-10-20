@@ -66,6 +66,12 @@
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>
+        <DockPanel Margin="0,8,0,0">
+         <TextBlock DockPanel.Dock="Left" Text="Digital gain" Width="85" VerticalAlignment="Center"/>
+         <TextBlock DockPanel.Dock="Right" Text="{Binding Source.GainDb, StringFormat={}{0:+0;-0;0} dB}" Width="62" TextAlignment="Right" VerticalAlignment="Center"/>
+         <Slider Minimum="-24" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+           Value="{Binding Source.GainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ValueChanged="GainChanged"/>
+        </DockPanel>
        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Level}" Height="9" Margin="0,10,0,0" Foreground="#33C5A8" Background="#0F1720"/>
        </StackPanel>
       </Border>
