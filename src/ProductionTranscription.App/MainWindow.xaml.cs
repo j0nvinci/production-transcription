@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         ChatList.ItemsSource = _messages;
         _settingsWindow = new SettingsWindow();
+        _ = _censor.UpdateCommunityListAsync();
         _settingsWindow.PartialTranscriptReceived += (source, words) =>
         {
             words = _censor.Censor(words);

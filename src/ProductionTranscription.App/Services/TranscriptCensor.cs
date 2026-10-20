@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 
 namespace ProductionTranscription.App.Services;
@@ -10,7 +11,12 @@ namespace ProductionTranscription.App.Services;
 public sealed class TranscriptCensor
 {
     public string TermsPath { get; }
-    private readonly Regex? _pattern;
+    private Regex? _pattern;
+    private readonly string _cachePath;
+    private readonly string _stampPath;
+    private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private const string ListUrl = "https://raw.githubusercontent.com/censor-text/profanity-list/main/list/en.txt";
+    public string? LastUpdateError { get; private set; }
 
     private static readonly string[] Defaults =
     {
@@ -26,6 +32,8 @@ public sealed class TranscriptCensor
         string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ProductionTranscription");
         Directory.CreateDirectory(folder);
+        _cachePath = Path.Combine(folder, "community-profanity-en.txt");
+        _stampPath = Path.Combine(folder, "community-profanity-last-update.txt");
         TermsPath = Path.Combine(folder, "censored-terms.txt");
         if (!File.Exists(TermsPath))
         {
@@ -33,25 +41,58 @@ public sealed class TranscriptCensor
             File.WriteAllLines(TermsPath,
                 new[] { "# One word or phrase per line. Lines starting with # are ignored." }.Concat(Defaults));
         }
-        var terms = File.ReadAllLines(TermsPath)
+        RebuildPattern();
+    }
+
+    private void RebuildPattern()
+    {
+        var terms = File.ReadLines(TermsPath)
+            .Concat(File.Exists(_cachePath) ? File.ReadLines(_cachePath) : Enumerable.Empty<string>())
             .Select(t => t.Trim())
-            .Where(t => t.Length > 0 && !t.StartsWith('#'))
+            .Where(t => t.Length > 0 && !t.StartsWith('#') && t.Length <= 120)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(t => t.Length)
             .Select(t => Regex.Escape(t).Replace(@"\ ", @"\s+"))
             .ToArray();
-        if (terms.Length > 0)
-            _pattern = new Regex(@"(?<![\p{L}\p{N}])(?:" + string.Join("|", terms) +
-                @")(?![\p{L}\p{N}])", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-                TimeSpan.FromMilliseconds(250));
+        Regex? updated = terms.Length == 0 ? null : new Regex(
+            @"(?<![\p{L}\p{N}])(?:" + string.Join("|", terms) + @")(?![\p{L}\p{N}])",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250));
+        Volatile.Write(ref _pattern, updated);
     }
 
-    public string Censor(string text)
+    public async Task UpdateCommunityListAsync()
     {
-        if (_pattern is null || string.IsNullOrEmpty(text)) return text;
         try
         {
-            return _pattern.Replace(text, match => new string('•', match.Length));
+            if (File.Exists(_cachePath) && File.Exists(_stampPath)
+                && DateTime.TryParse(File.ReadAllText(_stampPath), out var last)
+                && DateTime.UtcNow - last.ToUniversalTime() < TimeSpan.FromDays(1))
+                return;
+            string downloaded = await Client.GetStringAsync(ListUrl).ConfigureAwait(false);
+            var lines = downloaded.Replace("\r", "").Split('\n')
+                .Select(x => x.Trim()).Where(x => x.Length > 0 && x.Length <= 120).ToArray();
+            if (lines.Length < 100)
+                throw new InvalidDataException("Community list download was unexpectedly short.");
+            string temporary = _cachePath + ".tmp";
+            await File.WriteAllLinesAsync(temporary, lines).ConfigureAwait(false);
+            File.Move(temporary, _cachePath, true);
+            await File.WriteAllTextAsync(_stampPath, DateTime.UtcNow.ToString("O")).ConfigureAwait(false);
+            RebuildPattern();
+            LastUpdateError = null;
+        }
+        catch (Exception ex)
+        {
+            LastUpdateError = ex.Message;
+        }
+    }
+
+        public string Censor(string text)
+    {
+        var pattern = Volatile.Read(ref _pattern);
+        if (pattern is null || string.IsNullOrEmpty(text)) return text;
+        try
+        {
+            return pattern.Replace(text, match => new string('•', match.Length));
         }
         catch (RegexMatchTimeoutException) { return "[text filtered]"; }
     }
