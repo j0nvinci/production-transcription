@@ -6,6 +6,12 @@ namespace ProductionTranscription.App.Models;
 public sealed class SourceMeter : INotifyPropertyChanged
 {
     public SourceConfig Source { get; }
+    private string _validationMessage = "";
+    public string ValidationMessage
+    {
+        get => _validationMessage;
+        set { if (_validationMessage == value) return; _validationMessage = value; OnPropertyChanged(); }
+    }
     private double _level;
     public double Level
     {

@@ -65,6 +65,7 @@
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#FF7777" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
         <DockPanel Margin="0,8,0,0">
          <TextBlock DockPanel.Dock="Left" Text="Digital gain" Width="85" VerticalAlignment="Center"/>
          <TextBlock DockPanel.Dock="Right" Text="{Binding Source.GainDb, StringFormat={}{0:+0;-0;0} dB}" Width="62" TextAlignment="Right" VerticalAlignment="Center"/>

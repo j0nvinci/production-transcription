@@ -2,7 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using System.Windows.Media;
-using System.Windows.Controls.Primitives;
 using ProductionTranscription.App.Models;
 using ProductionTranscription.App.Services;
 namespace ProductionTranscription.App;
@@ -13,7 +12,6 @@ public partial class MainWindow : Window
     private bool _initialized;
     private bool _refreshingDevices;
     private int? _detectedChannels;
-    private readonly Dictionary<TextBox, ToolTip> _inputWarnings = new();
     private readonly AudioCaptureSession _capture = new();
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
@@ -122,37 +120,23 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private void ShowInputWarning(TextBox box)
+    private void ValidateInput(TextBox box)
     {
-        if (!_initialized) return;
-        string? error = InputError(box.Text);
-        box.Foreground = error is null ? Brushes.Black : Brushes.DarkRed;
-        box.BorderBrush = error is null ? SystemColors.ControlDarkBrush : Brushes.IndianRed;
-        box.BorderThickness = new Thickness(error is null ? 1 : 2);
-        if (!_inputWarnings.TryGetValue(box, out var popup))
-        {
-            popup = new ToolTip { Placement = PlacementMode.Right, StaysOpen = true };
-            _inputWarnings[box] = popup;
-            box.Unloaded += (_, _) =>
-            {
-                popup.IsOpen = false;
-                _inputWarnings.Remove(box);
-            };
-        }
-        popup.Content = error;
-        popup.IsOpen = error is not null && box.IsKeyboardFocusWithin;
-        box.ToolTip = error;
+        if (!_initialized || box.DataContext is not SourceMeter meter) return;
+        meter.ValidationMessage = InputError(box.Text) ?? "";
+        box.Foreground = meter.ValidationMessage.Length == 0 ? Brushes.Black : Brushes.DarkRed;
+        box.BorderBrush = meter.ValidationMessage.Length == 0 ? SystemColors.ControlDarkBrush : Brushes.IndianRed;
+        box.BorderThickness = new Thickness(meter.ValidationMessage.Length == 0 ? 1 : 2);
     }
 
     private void RefreshInputWarnings()
     {
         foreach (var meter in _meters)
         {
-            // Bound text boxes are rendered lazily, so validate again as each is edited.
             if (SourcesList.ItemContainerGenerator.ContainerFromItem(meter) is not FrameworkElement container)
                 continue;
             foreach (var box in FindInputBoxes(container))
-                ShowInputWarning(box);
+                ValidateInput(box);
         }
     }
 
@@ -168,7 +152,7 @@ public partial class MainWindow : Window
 
     private void SourceInputTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (sender is TextBox box && _initialized && !_capturing) ShowInputWarning(box);
+        if (sender is TextBox box && _initialized && !_capturing) ValidateInput(box);
     }
 
     private void GainChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -187,7 +171,7 @@ public partial class MainWindow : Window
             SaveSettings();
         }
         // Invalid entries stay visible in red; the saved mapping remains unchanged.
-        ShowInputWarning(box);
+        ValidateInput(box);
     }
     private void AddSourceClicked(object sender, RoutedEventArgs e)
     {
