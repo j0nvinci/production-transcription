@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using ProductionTranscription.App.Models;
@@ -33,7 +32,8 @@ public sealed class AudioCaptureSession : IDisposable
                 if (count > _asio.DriverInputChannelCount)
                     throw new InvalidOperationException($"Requested input {count}, but the ASIO device has only {_asio.DriverInputChannelCount} inputs.");
                 _channels = count; // ASIO captures channels 1..highest used, while meters only track mapped channels.
-                _asio.InitRecordAndPlayback(null, count, (int)_asio.DriverSampleRate);
+                // 48 kHz is the initial capture rate; device-rate negotiation is a follow-up.
+                _asio.InitRecordAndPlayback(null, count, 48000);
                 _asio.AudioAvailable += OnAsioAudio;
                 _asio.PlaybackStopped += OnAsioStopped;
                 _asio.Play();
