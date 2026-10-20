@@ -31,6 +31,13 @@ public partial class SettingsWindow : Window
     public event Action<string>? StatusChanged;
     public event Action<string, string>? SourceColorChanged;
     public event Action? SourcesChanged;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
+    public bool IsMuted(string source) => _muted.ContainsKey(source);
+    public void SetMuted(string source, bool muted)
+    {
+        if (muted) _muted[source] = 1;
+        else _muted.TryRemove(source, out _);
+    }
     public IReadOnlyList<(string Name, int Input, bool Enabled)> Channels => _settings.Sources.Select(v => (v.Name, v.InputNumber, v.Enabled)).ToArray();
     private bool _shuttingDown;
     public SettingsWindow()
@@ -445,8 +452,10 @@ public partial class SettingsWindow : Window
             StatusChanged?.Invoke(CaptureStatus.Text);
         }
     }
-    private void OnSourceAudio(SourceConfig source, float[] samples, int sampleRate) =>
-        _transcription?.Submit(source, samples, sampleRate);
+    private void OnSourceAudio(SourceConfig source, float[] samples, int sampleRate)
+    {
+        if (!IsMuted(source.Name)) _transcription?.Submit(source, samples, sampleRate);
+    }
     private void StopCaptureClicked(object sender, RoutedEventArgs e) => StopCapture();
     private void StopCapture()
     {

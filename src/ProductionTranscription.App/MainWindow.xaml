@@ -57,7 +57,7 @@
       <ListBox.ItemTemplate>
        <DataTemplate>
         <Grid>
-         <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
          <Border Width="23" Height="23" BorderBrush="{Binding Accent}" BorderThickness="2" CornerRadius="12">
           <TextBlock Text="●" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
          </Border>
@@ -65,6 +65,8 @@
           <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
           <TextBlock Text="{Binding Detail}" FontSize="10" Foreground="#91A5BC"/>
          </StackPanel>
+         <Button Grid.Column="2" Content="{Binding MuteLabel}" Tag="{Binding}"
+          Click="MuteChannelClicked" Padding="7,4" FontSize="10" Margin="5,0,0,0"/>
         </Grid>
        </DataTemplate>
       </ListBox.ItemTemplate>

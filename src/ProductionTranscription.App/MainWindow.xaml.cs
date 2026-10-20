@@ -86,13 +86,23 @@ public partial class MainWindow : Window
         _statusTimer.Start();
         Closing += (_, _) => { _statusTimer.Stop(); _settingsWindow.Shutdown(); };
     }
-    public sealed record ChannelOption(string Name, string Detail, Brush Accent, string? SourceName);
+    public sealed record ChannelOption(string Name, string Detail, Brush Accent, string? SourceName, bool Muted)
+    {
+        public string MuteLabel => Muted ? "Unmute" : "Mute";
+    }
+    private void MuteChannelClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not ChannelOption option ||
+            option.SourceName is null) return;
+        _settingsWindow.SetMuted(option.SourceName, !option.Muted);
+        RefreshChannels();
+    }
     private void RefreshChannels()
     {
         _channels.Clear();
-        _channels.Add(new ChannelOption("All", "All communications", Brushes.White, null));
+        _channels.Add(new ChannelOption("All", "All communications", Brushes.White, null, false));
         foreach (var channel in _settingsWindow.Channels)
-            _channels.Add(new ChannelOption(channel.Name, "Input " + channel.Input, ColorFor(channel.Name), channel.Name));
+            _channels.Add(new ChannelOption(channel.Name, "Input " + channel.Input, ColorFor(channel.Name), channel.Name, _settingsWindow.IsMuted(channel.Name)));
         ChannelList.SelectedItem = _channels.FirstOrDefault(v => v.SourceName == _selectedChannel) ?? _channels[0];
     }
     private void ChannelSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
