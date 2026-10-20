@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
     private bool _capturing;
+    private bool _starting;
     private OfflineTranscription? _transcription;
     public event Action<string, string>? TranscriptReceived;
     public event Action<string, string>? PartialTranscriptReceived;
@@ -223,10 +224,10 @@ public partial class SettingsWindow : Window
     public void StartFromMain() => StartCaptureClicked(this, new RoutedEventArgs());
     public void StopFromMain() => StopCapture();
     public void Shutdown() { _shuttingDown = true; Close(); }
-    public bool IsCapturing => _capturing;
-    private void StartCaptureClicked(object sender, RoutedEventArgs e)
+    public bool IsCapturing => _capturing || _starting;
+    private async void StartCaptureClicked(object sender, RoutedEventArgs e)
     {
-        if (_capturing || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
+        if (_capturing || _starting || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
         try
         {
             foreach (var meter in _meters)
@@ -242,17 +243,36 @@ public partial class SettingsWindow : Window
                     return;
                 }
             }
-            string modelPath = System.IO.Path.Combine(AppContext.BaseDirectory, "models", "vosk-model-small-en-us-0.15");
-            if (!System.IO.Directory.Exists(modelPath))
+            string modelsRoot = System.IO.Path.Combine(AppContext.BaseDirectory, "models");
+            var availableModels = System.IO.Directory.Exists(modelsRoot)
+                ? System.IO.Directory.GetDirectories(modelsRoot, "vosk-model*")
+                    .Where(d => System.IO.Directory.Exists(System.IO.Path.Combine(d, "am")) &&
+                                System.IO.Directory.Exists(System.IO.Path.Combine(d, "conf")))
+                    .ToArray()
+                : Array.Empty<string>();
+            if (availableModels.Length == 0)
             {
-                CaptureStatus.Text = "Offline model missing. Copy the unzipped English Vosk model into models\\vosk-model-small-en-us-0.15 next to the app.";
+                CaptureStatus.Text = "No Vosk model found. Extract a Vosk model folder inside the models directory.";
+                StatusChanged?.Invoke(CaptureStatus.Text);
                 return;
             }
-            _transcription = new OfflineTranscription(modelPath, _settings.Sources.Where(s => s.Enabled).ToArray(),
-                (source, words) => Dispatcher.BeginInvoke(() =>
-                {
-                    TranscriptReceived?.Invoke(source, words);
-                }));
+            // Prefer the full model when installed, otherwise preserve the small-model default.
+            string modelPath = availableModels.FirstOrDefault(d =>
+                System.IO.Path.GetFileName(d).Equals("vosk-model-en-us-0.22", StringComparison.OrdinalIgnoreCase))
+                ?? availableModels.FirstOrDefault(d =>
+                System.IO.Path.GetFileName(d).Equals("vosk-model-small-en-us-0.15", StringComparison.OrdinalIgnoreCase))
+                ?? availableModels[0];
+            _starting = true;
+            StartCaptureButton.IsEnabled = false;
+            BackendBox.IsEnabled = false;
+            DeviceBox.IsEnabled = false;
+            CaptureStatus.Text = "Loading offline recognition model: " + System.IO.Path.GetFileName(modelPath) + " …";
+            StatusChanged?.Invoke(CaptureStatus.Text);
+            var selectedSources = _settings.Sources.Where(s => s.Enabled).ToArray();
+            _transcription = await Task.Run(() => new OfflineTranscription(modelPath, selectedSources,
+                (source, words) => Dispatcher.BeginInvoke(() => TranscriptReceived?.Invoke(source, words))));
+            CaptureStatus.Text = "Model loaded. Starting audio capture…";
+            StatusChanged?.Invoke(CaptureStatus.Text);
             _transcription.PartialRecognized += (source, words) => Dispatcher.BeginInvoke(() =>
             {
                 if (_capturing) PartialTranscriptReceived?.Invoke(source, words);
@@ -264,6 +284,7 @@ public partial class SettingsWindow : Window
             _capture.SourceAudioAvailable += OnSourceAudio;
             _capture.Start(_settings.Backend, device.Id, _settings.Sources);
             _capturing = true;
+            _starting = false;
             StartCaptureButton.IsEnabled = false;
             StopCaptureButton.IsEnabled = true;
             BackendBox.IsEnabled = false;
@@ -273,11 +294,15 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
+            _starting = false;
+            StartCaptureButton.IsEnabled = true;
+            BackendBox.IsEnabled = true;
+            DeviceBox.IsEnabled = true;
             _capture.SourceAudioAvailable -= OnSourceAudio;
             _transcription?.Dispose();
             _transcription = null;
             CaptureStatus.Text = "Unable to start capture: " + ex.Message;
-            MessageBox.Show(ex.Message, "Audio capture", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusChanged?.Invoke(CaptureStatus.Text);
         }
     }
     private void OnSourceAudio(SourceConfig source, float[] samples, int sampleRate) =>
@@ -291,6 +316,7 @@ public partial class SettingsWindow : Window
         _transcription?.Dispose();
         _transcription = null;
         _capturing = false;
+        _starting = false;
         StartCaptureButton.IsEnabled = true;
         StopCaptureButton.IsEnabled = false;
         BackendBox.IsEnabled = true;
