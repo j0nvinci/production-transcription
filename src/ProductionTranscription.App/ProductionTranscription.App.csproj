@@ -7,4 +7,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ProductionTranscription</AssemblyName>
   </PropertyGroup>
+  <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /></ItemGroup>
 </Project>

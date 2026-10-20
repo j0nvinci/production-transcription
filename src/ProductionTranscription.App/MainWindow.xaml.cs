@@ -8,23 +8,64 @@ public partial class MainWindow : Window
 {
     private AppSettings _settings = new();
     private bool _initialized;
+    private bool _refreshingDevices;
     public MainWindow()
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
         BackendBox.SelectedIndex = _settings.Backend == AudioBackend.Asio ? 0 : 1;
         ProfileBox.SelectedIndex = (int)_settings.Profile;
-        DeviceBox.Text = _settings.DeviceName;
         SourcesList.ItemsSource = _settings.Sources;
         _initialized = true;
+        RefreshDevices();
         Closing += (_, _) => SaveSettings();
     }
     private void SettingsChanged(object sender, RoutedEventArgs e)
     {
         if (!_initialized) return;
-        _settings.Backend = BackendBox.SelectedIndex == 0 ? AudioBackend.Asio : AudioBackend.Wasapi;
+        AudioBackend backend = BackendBox.SelectedIndex == 0 ? AudioBackend.Asio : AudioBackend.Wasapi;
+        if (_settings.Backend != backend)
+        {
+            _settings.Backend = backend;
+            _settings.DeviceName = "";
+            RefreshDevices();
+        }
         _settings.Profile = (TranscriptionProfile)Math.Max(0, ProfileBox.SelectedIndex);
-        _settings.DeviceName = DeviceBox.Text;
+        SaveSettings();
+    }
+    private void RefreshDevicesClicked(object sender, RoutedEventArgs e) => RefreshDevices();
+    private void RefreshDevices()
+    {
+        if (!_initialized) return;
+        _refreshingDevices = true;
+        try
+        {
+            var devices = AudioDeviceDiscovery.GetDevices(_settings.Backend);
+            DeviceBox.ItemsSource = devices;
+            DeviceBox.SelectedValue = _settings.DeviceName;
+            // Never silently switch an established mapping to another device.
+            if (DeviceBox.SelectedItem is null && string.IsNullOrEmpty(_settings.DeviceName) && devices.Count > 0)
+            {
+                DeviceBox.SelectedIndex = 0;
+                _settings.DeviceName = devices[0].Id;
+            }
+            DeviceBox.IsEnabled = devices.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            DeviceBox.ItemsSource = null;
+            DeviceBox.IsEnabled = false;
+            MessageBox.Show("Audio device enumeration failed: " + ex.Message, "Device discovery",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { _refreshingDevices = false; }
+        SaveSettings();
+    }
+    private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized || _refreshingDevices) return;
+        if (DeviceBox.SelectedItem is not AudioDeviceInfo selected) return;
+        _settings.DeviceName = selected.Id;
         SaveSettings();
     }
     private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized) SaveSettings(); }
