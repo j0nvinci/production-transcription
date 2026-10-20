@@ -1,21 +1,20 @@
-# Experimental offline Whisper support
+# Whisper rolling-window mode (experimental)
 
-Use official CPU-compatible Windows whisper.cpp binaries from
-https://github.com/ggml-org/whisper.cpp/releases .
-Put whisper-cli.exe **and accompanying DLLs** in tools/ beside the application.
-Download a compatible whisper.cpp ggml-tiny.en.bin or ggml-base.en.bin model and
-place the file in models/ beside the application. In Settings, select the
-Whisper engine, refresh models, choose a file, and start capture.
+Whisper is now loaded **once per capture session** through Whisper.net and its
+CPU-only native runtime. There is no longer a need to install whisper-cli.exe
+or any tools/ runtime. Place compatible ggml-*.bin model files under models/.
+Select the Whisper engine and model from Settings.
 
-Whisper recognition uses the existing independent per-source PCM streams and
-noise gates. Segments end after ~0.75 s silence or 12 s maximum. Each segment
-is temporarily written as 16 kHz mono WAV, passed to local whisper-cli in
-CPU mode, then deleted. CPU execution is serialized to avoid competing
-Whisper processes across multiple channels.
+Each source accumulates up to 12 seconds of speech and requests an updating
+partial transcription approximately every 2 seconds; partials use up to 5 seconds
+of recent audio. At 750ms of silence (or 12s utterance limit), the complete
+utterance is decoded and replaces its provisional chat bubble.
 
-IMPORTANT: this is a prototype CLI adapter, not true streaming Whisper.
-There are no partial words; messages appear only after segmentation plus
-Whisper processing. Process creation and reloading models for each segment
-may be slow. Vosk remains the more efficient live option. Later improve
-with a persistent Whisper runtime, proper resampling, preroll and backlog
-reporting. No audio is sent to cloud services.
+Processing is CPU-only, bounded, and inference is serialized across sources to
+avoid simultaneous high-CPU workloads. Actual partial latency depends on the
+CPU and model size; several active channels can lag. Whisper may hallucinate on
+background sounds despite the per-source RMS noise gates.
+
+Audio remains in memory and is never uploaded or written to temporary WAV files.
+Vosk is unchanged. This experimental mode requires Windows compatible with the
+Whisper.net CPU runtime and sufficient AVX support. Test with tiny.en first.

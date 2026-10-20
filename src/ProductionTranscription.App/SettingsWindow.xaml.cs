@@ -327,8 +327,7 @@ public partial class SettingsWindow : Window
                 Dispatcher.BeginInvoke(() => TranscriptReceived?.Invoke(source, words));
             if (_settings.RecognitionEngine == RecognitionEngine.Whisper)
             {
-                var cli = System.IO.Path.Combine(AppContext.BaseDirectory, "tools", "whisper-cli.exe");
-                _transcription = new WhisperTranscription(cli, modelPath, selectedSources, emit);
+                _transcription = await Task.Run(() => (ITranscriptionSession)new WhisperTranscription(modelPath, selectedSources, emit));
             }
             else
                 _transcription = await Task.Run(() => (ITranscriptionSession)new OfflineTranscription(modelPath, selectedSources, emit));

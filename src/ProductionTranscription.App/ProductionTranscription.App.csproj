@@ -7,5 +7,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ProductionTranscription</AssemblyName>
   </PropertyGroup>
-  <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /><PackageReference Include="Vosk" Version="0.3.38" /></ItemGroup>
+  <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /><PackageReference Include="Vosk" Version="0.3.38" /><PackageReference Include="Whisper.net" Version="1.9.1" /><PackageReference Include="Whisper.net.Runtime" Version="1.9.1" /></ItemGroup>
 </Project>

@@ -1,137 +1,132 @@
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Channels;
 using ProductionTranscription.App.Models;
+using Whisper.net;
 
 namespace ProductionTranscription.App.Services;
 
-/// <summary>Experimental offline whisper.cpp CLI adapter: CPU inference on completed audio segments.</summary>
+/// <summary>
+/// Persistent Whisper runtime. Rolling partials every ~2 seconds with an up-to-5-second
+/// context window; a completed utterance is decoded once at the end.
+/// </summary>
 public sealed class WhisperTranscription : ITranscriptionSession
 {
-    private readonly CancellationTokenSource _stop = new();
+    private const int Rate = 16000;
+    private readonly WhisperFactory _factory;
+    private readonly CancellationTokenSource _cancel = new();
     private readonly Dictionary<SourceConfig, Channel<(float[] Samples, int Rate)>> _queues = new();
-    private readonly List<Task> _tasks = new();
-    private readonly SemaphoreSlim _cpu = new(1);
-    private readonly string _cli;
-    private readonly string _model;
+    private readonly List<Task> _workers = new();
+    private readonly SemaphoreSlim _inferGate = new(1, 1);
     private readonly Action<string, string> _emit;
     public event Action<string>? Diagnostic;
     public event Action<string, string>? PartialRecognized;
 
-    public WhisperTranscription(string cli, string model, SourceConfig[] sources, Action<string, string> emit)
+    public WhisperTranscription(string modelPath, SourceConfig[] sources, Action<string, string> emit)
     {
-        if (!File.Exists(cli)) throw new FileNotFoundException("Install official whisper.cpp whisper-cli.exe and DLLs in tools.", cli);
-        if (!File.Exists(model)) throw new FileNotFoundException("Missing GGML model.", model);
-        _cli = cli; _model = model; _emit = emit;
+        if (!File.Exists(modelPath)) throw new FileNotFoundException("Whisper model missing.", modelPath);
+        _factory = WhisperFactory.FromPath(modelPath);
+        _emit = emit;
         foreach (var source in sources)
         {
-            var queue = Channel.CreateBounded<(float[] Samples, int Rate)>(new BoundedChannelOptions(128)
-            {
-                SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.DropOldest
-            });
-            _queues[source] = queue;
-            _tasks.Add(Task.Run(() => ProcessSourceAsync(source, queue.Reader, _stop.Token)));
+            var channel = Channel.CreateBounded<(float[] Samples, int Rate)>(new BoundedChannelOptions(256)
+            { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.DropOldest });
+            _queues[source] = channel;
+            _workers.Add(Task.Run(() => WorkAsync(source, channel.Reader, _cancel.Token)));
         }
     }
+
     public void Submit(SourceConfig source, float[] samples, int sampleRate)
     {
-        if (_queues.TryGetValue(source, out var queue)) queue.Writer.TryWrite((samples, sampleRate));
+        if (_queues.TryGetValue(source, out var channel))
+            channel.Writer.TryWrite((samples, sampleRate));
     }
-    private async Task ProcessSourceAsync(SourceConfig source, ChannelReader<(float[] Samples, int Rate)> reader, CancellationToken ct)
+
+    private async Task WorkAsync(SourceConfig source,
+        ChannelReader<(float[] Samples, int Rate)> reader, CancellationToken ct)
     {
-        var buffer = new List<float>();
-        int speech = 0, silence = 0;
+        using var processor = _factory.CreateBuilder().WithLanguage("en").Build();
+        var utterance = new List<float>(Rate * 12);
+        int silence = 0, voiced = 0, nextPartial = Rate * 2;
         try
         {
             while (await reader.WaitToReadAsync(ct))
             while (reader.TryRead(out var block))
             {
-                float[] audio = Resample(block.Samples, block.Rate);
-                if (audio.Length == 0) continue;
-                double sum = 0;
-                foreach (float sample in audio) sum += (double)sample * sample;
-                bool active = Math.Sqrt(sum / audio.Length) >= Math.Pow(10, Math.Clamp(source.GateDbfs, -80, -20) / 20.0);
-                if (!active && buffer.Count == 0) continue;
-                buffer.AddRange(audio);
-                if (active) { speech += audio.Length; silence = 0; }
-                else silence += audio.Length;
-                if (silence < 12000 && buffer.Count < 16000 * 12) continue;
-                var utterance = buffer.ToArray();
-                buffer.Clear();
-                bool useful = speech >= 16000 / 3;
-                speech = silence = 0;
-                if (useful) await RecognizeAsync(source.Name, utterance, ct);
+                float[] data = Resample(block.Samples, block.Rate);
+                if (data.Length == 0) continue;
+                double energy = 0;
+                foreach (var value in data) energy += (double)value * value;
+                bool active = Math.Sqrt(energy / data.Length) >= Math.Pow(10, Math.Clamp(source.GateDbfs, -80, -20) / 20);
+                if (!active && utterance.Count == 0) continue;
+                utterance.AddRange(data);
+                if (active) { voiced += data.Length; silence = 0; }
+                else silence += data.Length;
+
+                bool finished = silence >= Rate * 3 / 4 || utterance.Count >= Rate * 12;
+                if (finished)
+                {
+                    if (voiced >= Rate / 3)
+                    {
+                        string result = await DecodeAsync(processor, utterance.ToArray(), ct);
+                        if (!string.IsNullOrWhiteSpace(result)) _emit(source.Name, result);
+                    }
+                    PartialRecognized?.Invoke(source.Name, "");
+                    utterance.Clear();
+                    silence = voiced = 0;
+                    nextPartial = Rate * 2;
+                }
+                else if (utterance.Count >= nextPartial && voiced >= Rate / 3)
+                {
+                    // Only the most recent five seconds, avoiding unbounded partial inference.
+                    float[] clip = utterance.Skip(Math.Max(0, utterance.Count - Rate * 5)).ToArray();
+                    string partial = await DecodeAsync(processor, clip, ct);
+                    PartialRecognized?.Invoke(source.Name, partial);
+                    nextPartial = utterance.Count + Rate * 2;
+                }
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { Diagnostic?.Invoke("Whisper [" + source.Name + "]: " + ex.Message); }
     }
 
-    private async Task RecognizeAsync(string source, float[] audio, CancellationToken ct)
+    private async Task<string> DecodeAsync(WhisperProcessor processor, float[] data, CancellationToken ct)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "ProductionTranscription", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(folder);
-        string wav = Path.Combine(folder, "input.wav");
-        string output = Path.Combine(folder, "transcript");
+        await _inferGate.WaitAsync(ct);
         try
         {
-            using (var stream = File.Create(wav))
-            using (var writer = new BinaryWriter(stream))
+            var words = new List<string>();
+            await foreach (var segment in processor.ProcessAsync(data, ct))
             {
-                int bytes = audio.Length * 2;
-                writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF")); writer.Write(36 + bytes);
-                writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));
-                writer.Write(16); writer.Write((short)1); writer.Write((short)1);
-                writer.Write(16000); writer.Write(32000); writer.Write((short)2); writer.Write((short)16);
-                writer.Write(System.Text.Encoding.ASCII.GetBytes("data")); writer.Write(bytes);
-                foreach (float sample in audio)
-                    writer.Write((short)Math.Clamp((int)(Math.Clamp(sample, -1f, 1f) * 32767), -32768, 32767));
+                if (!string.IsNullOrWhiteSpace(segment.Text)) words.Add(segment.Text.Trim());
             }
-            await _cpu.WaitAsync(ct);
-            try
-            {
-                using var process = new Process();
-                process.StartInfo = new ProcessStartInfo(_cli)
-                { UseShellExecute = false, CreateNoWindow = true };
-                foreach (string arg in new[] { "-m", _model, "-f", wav, "-l", "en", "-t", "2", "-ng", "-otxt", "-of", output, "-np" })
-                    process.StartInfo.ArgumentList.Add(arg);
-                if (!process.Start()) throw new InvalidOperationException("Unable to start whisper-cli.");
-                using var cancel = ct.Register(() => { try { if (!process.HasExited) process.Kill(true); } catch { } });
-                await process.WaitForExitAsync(ct);
-                if (process.ExitCode != 0)
-                    throw new InvalidOperationException("whisper-cli exited with code " + process.ExitCode);
-                if (File.Exists(output + ".txt"))
-                {
-                    string text = (await File.ReadAllTextAsync(output + ".txt", ct)).Trim();
-                    if (!string.IsNullOrWhiteSpace(text)) _emit(source, text);
-                }
-            }
-            finally { _cpu.Release(); }
+            return string.Join(" ", words).Trim();
         }
-        finally { try { Directory.Delete(folder, true); } catch { } }
+        finally { _inferGate.Release(); }
     }
 
-    private static float[] Resample(float[] audio, int rate)
+    private static float[] Resample(float[] input, int inputRate)
     {
-        if (rate <= 0 || audio.Length == 0) return Array.Empty<float>();
-        if (rate == 16000) return audio;
-        int length = (int)Math.Round(audio.Length * 16000.0 / rate);
-        var result = new float[length];
-        for (int n = 0; n < length; n++)
+        if (inputRate <= 0 || input.Length == 0) return Array.Empty<float>();
+        if (inputRate == Rate) return input;
+        int length = (int)Math.Round(input.Length * (double)Rate / inputRate);
+        var output = new float[length];
+        for (int i = 0; i < length; i++)
         {
-            double position = n * rate / 16000.0;
-            int left = Math.Min((int)position, audio.Length - 1);
-            int right = Math.Min(left + 1, audio.Length - 1);
-            result[n] = (float)(audio[left] + (audio[right] - audio[left]) * (position - left));
+            double position = (double)i * inputRate / Rate;
+            int lo = Math.Min((int)position, input.Length - 1);
+            int hi = Math.Min(lo + 1, input.Length - 1);
+            output[i] = (float)(input[lo] + (input[hi] - input[lo]) * (position - lo));
         }
-        return result;
+        return output;
     }
+
     public void Dispose()
     {
-        _stop.Cancel();
+        _cancel.Cancel();
         foreach (var queue in _queues.Values) queue.Writer.TryComplete();
-        try { Task.WaitAll(_tasks.ToArray(), TimeSpan.FromSeconds(3)); } catch { }
-        _stop.Dispose();
-        // The CLI process is cancelled with its recognition task; bounded shutdown is best effort.
+        try { Task.WaitAll(_workers.ToArray(), TimeSpan.FromSeconds(10)); } catch { }
+        _factory.Dispose();
+        _inferGate.Dispose();
+        _cancel.Dispose();
     }
 }
