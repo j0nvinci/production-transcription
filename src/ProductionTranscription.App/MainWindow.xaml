@@ -55,7 +55,8 @@
     <ItemsControl.ItemTemplate>
      <DataTemplate>
       <Border Margin="0,0,0,7" Padding="12" Background="#222C39" CornerRadius="8">
-       <WrapPanel>
+       <StackPanel>
+        <WrapPanel>
         <CheckBox Content="On" IsChecked="{Binding Source.Enabled, Mode=TwoWay}"
           Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
         <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
@@ -64,8 +65,9 @@
           LostFocus="SourceInputLostFocus"/>
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
-       </WrapPanel>
+        </WrapPanel>
        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Level}" Height="9" Margin="0,10,0,0" Foreground="#33C5A8" Background="#0F1720"/>
+       </StackPanel>
       </Border>
      </DataTemplate>
     </ItemsControl.ItemTemplate>
