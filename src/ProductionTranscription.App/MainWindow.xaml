@@ -40,7 +40,6 @@
    <WrapPanel Margin="0,0,0,8">
     <Button x:Name="StartCaptureButton" Content="Start capture" Click="StartCaptureClicked" Padding="12,6" Margin="0,0,8,0"/>
     <Button x:Name="StopCaptureButton" Content="Stop" Click="StopCaptureClicked" Padding="12,6" Margin="0,0,8,0" IsEnabled="False"/>
-   <Button Content="Inspect selected device channels" Padding="10,6" HorizontalAlignment="Left" Margin="0,0,0,8" Click="InspectDeviceClicked"/>
    </WrapPanel>
    <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
    <DockPanel Margin="0,0,0,10">
@@ -61,8 +60,8 @@
           Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
         <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
         <TextBlock Text="Input #" VerticalAlignment="Center" Margin="8,0,8,0"/>
-        <TextBox Width="55" Text="{Binding Source.InputNumber, UpdateSourceTrigger=LostFocus}"
-          LostFocus="SourceInputLostFocus"/>
+        <TextBox Width="55" Text="{Binding Source.InputNumber, Mode=OneWay}"
+          TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>

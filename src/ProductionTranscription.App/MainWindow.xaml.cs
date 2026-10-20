@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Controls.Primitives;
 using ProductionTranscription.App.Models;
 using ProductionTranscription.App.Services;
 namespace ProductionTranscription.App;
@@ -11,6 +13,7 @@ public partial class MainWindow : Window
     private bool _initialized;
     private bool _refreshingDevices;
     private int? _detectedChannels;
+    private readonly Dictionary<TextBox, ToolTip> _inputWarnings = new();
     private readonly AudioCaptureSession _capture = new();
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
@@ -80,6 +83,7 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { _refreshingDevices = false; }
+        InspectSelectedDevice();
         SaveSettings();
     }
     private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -89,32 +93,84 @@ public partial class MainWindow : Window
         _settings.DeviceName = selected.Id;
         _detectedChannels = null;
         DeviceStatus.Text = "Selected: " + selected.Name;
+        InspectSelectedDevice();
         SaveSettings();
     }
-    private void InspectDeviceClicked(object sender, RoutedEventArgs e)
+    // Query the selected device automatically. No manual Inspect button is required.
+    private void InspectSelectedDevice()
     {
-        if (DeviceBox.SelectedItem is not AudioDeviceInfo selected || _capturing)
-        {
-            DeviceStatus.Text = "Select a detected device first.";
-            return;
-        }
+        if (_capturing || DeviceBox.SelectedItem is not AudioDeviceInfo selected) return;
         try
         {
-            int channelCount = AudioDeviceDiscovery.GetInputChannelCount(_settings.Backend, selected.Id);
-            _detectedChannels = channelCount;
-            int[] invalid = _settings.Sources.Where(s => s.Enabled && s.InputNumber > channelCount)
-                .Select(s => s.InputNumber).Distinct().ToArray();
-            DeviceStatus.Text = $"{selected.Name}: {channelCount} input channel(s) available." +
-                (invalid.Length == 0 ? " All enabled input mappings are within range." :
-                " Out-of-range configured inputs: " + string.Join(", ", invalid) + ".");
+            _detectedChannels = AudioDeviceDiscovery.GetInputChannelCount(_settings.Backend, selected.Id);
+            DeviceStatus.Text = $"{selected.Name} — {_detectedChannels} input channel(s) detected";
         }
         catch (Exception ex)
         {
             _detectedChannels = null;
-            DeviceStatus.Text = "Unable to inspect this device: " + ex.Message +
-                ". ASIO drivers may be busy in another application.";
+            DeviceStatus.Text = $"{selected.Name} — channel count unavailable ({ex.Message}). Inputs will be checked when capture starts.";
+        }
+        RefreshInputWarnings();
+    }
+
+    private string? InputError(string inputText)
+    {
+        if (!int.TryParse(inputText, out int n) || n < 1)
+            return "Enter a positive input number, starting at 1.";
+        if (_detectedChannels is int total && n > total)
+            return $"This device has {total} inputs. Choose a number from 1 to {total}.";
+        return null;
+    }
+
+    private void ShowInputWarning(TextBox box)
+    {
+        if (!_initialized) return;
+        string? error = InputError(box.Text);
+        box.Foreground = error is null ? Brushes.Black : Brushes.DarkRed;
+        box.BorderBrush = error is null ? SystemColors.ControlDarkBrush : Brushes.IndianRed;
+        box.BorderThickness = new Thickness(error is null ? 1 : 2);
+        if (!_inputWarnings.TryGetValue(box, out var popup))
+        {
+            popup = new ToolTip { Placement = PlacementMode.Right, StaysOpen = true };
+            _inputWarnings[box] = popup;
+            box.Unloaded += (_, _) =>
+            {
+                popup.IsOpen = false;
+                _inputWarnings.Remove(box);
+            };
+        }
+        popup.Content = error;
+        popup.IsOpen = error is not null && box.IsKeyboardFocusWithin;
+        box.ToolTip = error;
+    }
+
+    private void RefreshInputWarnings()
+    {
+        foreach (var meter in _meters)
+        {
+            // Bound text boxes are rendered lazily, so validate again as each is edited.
+            if (SourcesList.ItemContainerGenerator.ContainerFromItem(meter) is not FrameworkElement container)
+                continue;
+            foreach (var box in FindInputBoxes(container))
+                ShowInputWarning(box);
         }
     }
+
+    private static IEnumerable<TextBox> FindInputBoxes(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is TextBox box && box.Width == 55) yield return box;
+            foreach (var nested in FindInputBoxes(child)) yield return nested;
+        }
+    }
+
+    private void SourceInputTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox box && _initialized && !_capturing) ShowInputWarning(box);
+    }
+
     private void GainChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_initialized) SaveSettings();
@@ -122,25 +178,16 @@ public partial class MainWindow : Window
     private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized && !_capturing) SaveSettings(); }
     private void SourceInputLostFocus(object sender, RoutedEventArgs e)
     {
-        if (!_initialized || _capturing) return;
-        if (sender is not TextBox box || box.DataContext is not SourceMeter meter) return;
-        var source = meter.Source;
-        if (!int.TryParse(box.Text, out var input) || input < 1)
+        if (!_initialized || _capturing || sender is not TextBox box ||
+            box.DataContext is not SourceMeter meter) return;
+        var error = InputError(box.Text);
+        if (error is null && int.TryParse(box.Text, out int n))
         {
-            box.Text = source.InputNumber.ToString();
-            MessageBox.Show("Input numbers must be positive integers.", "Invalid channel",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            meter.Source.InputNumber = n;
+            SaveSettings();
         }
-        if (_detectedChannels.HasValue && input > _detectedChannels.Value)
-        {
-            box.Text = source.InputNumber.ToString();
-            MessageBox.Show($"The inspected device exposes only {_detectedChannels.Value} input channels.",
-                "Input outside device range", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        source.InputNumber = input;
-        SaveSettings();
+        // Invalid entries stay visible in red; the saved mapping remains unchanged.
+        ShowInputWarning(box);
     }
     private void AddSourceClicked(object sender, RoutedEventArgs e)
     {
@@ -183,7 +230,17 @@ public partial class MainWindow : Window
         if (_capturing || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
         try
         {
-            _capture.Start(_settings.Backend, device.Id, _settings.Sources);
+            foreach (var box in _inputWarnings.Keys.ToArray())
+        {
+            if (InputError(box.Text) is string problem)
+            {
+                box.Focus();
+                ShowInputWarning(box);
+                CaptureStatus.Text = "Correct invalid source mappings before starting capture.";
+                return;
+            }
+        }
+        _capture.Start(_settings.Backend, device.Id, _settings.Sources);
             _capturing = true;
             StartCaptureButton.IsEnabled = false;
             StopCaptureButton.IsEnabled = true;
