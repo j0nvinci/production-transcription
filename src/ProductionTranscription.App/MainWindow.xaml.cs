@@ -244,6 +244,10 @@ public partial class MainWindow : Window
                     while (_transcriptLines.Count > 300) _transcriptLines.RemoveAt(0);
                     TranscriptList.ScrollIntoView(_transcriptLines[^1]);
                 }));
+            _transcription.Diagnostic += message => Dispatcher.BeginInvoke(() =>
+            {
+                if (_capturing) CaptureStatus.Text = message;
+            });
             _capture.SourceAudioAvailable += OnSourceAudio;
             _capture.Start(_settings.Backend, device.Id, _settings.Sources);
             _capturing = true;

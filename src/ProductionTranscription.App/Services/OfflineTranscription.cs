@@ -17,6 +17,8 @@ public sealed class OfflineTranscription : IDisposable
     private readonly Dictionary<SourceConfig, Worker> _workers = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly Model _model;
+    public event Action<string>? Diagnostic;
+    private long _receivedBlocks;
     public OfflineTranscription(string modelPath, SourceConfig[] sources, Action<string, string> onTranscript)
     {
         Vosk.Vosk.SetLogLevel(-1);
@@ -41,10 +43,12 @@ public sealed class OfflineTranscription : IDisposable
                             if (converted.Length == 0) continue;
                             if (recognizer.AcceptWaveform(converted, converted.Length))
                                 Publish(recognizer.Result(), source.Name, onTranscript);
+                            else if (Interlocked.Increment(ref _receivedBlocks) % 150 == 0)
+                                Diagnostic?.Invoke($"Audio is reaching Vosk ({source.Name}); waiting for an utterance boundary.");
                         }
                 }
                 catch (OperationCanceledException) { }
-                catch (Exception) { /* Future: surface worker failures through a per-source status view. */ }
+                catch (Exception ex) { Diagnostic?.Invoke($"Recognition failed on {source.Name}: {ex.Message}"); }
             });
             _workers[source] = new Worker { Queue = queue, Task = task };
         }
