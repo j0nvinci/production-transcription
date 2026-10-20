@@ -50,11 +50,15 @@ public partial class MainWindow : Window
                 _settings.DeviceName = devices[0].Id;
             }
             DeviceBox.IsEnabled = devices.Count > 0;
+            DeviceStatus.Text = devices.Count == 0
+                ? $"No {(_settings.Backend == AudioBackend.Asio ? "ASIO drivers" : "active WASAPI recording endpoints")} detected. Use Refresh after connecting a device."
+                : $"{devices.Count} device(s) detected. " + (DeviceBox.SelectedItem is null ? "Previously selected device is unavailable; select another." : "Select a device from the dropdown.");
         }
         catch (Exception ex)
         {
             DeviceBox.ItemsSource = null;
             DeviceBox.IsEnabled = false;
+            DeviceStatus.Text = "Device enumeration failed: " + ex.Message;
             MessageBox.Show("Audio device enumeration failed: " + ex.Message, "Device discovery",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
@@ -66,6 +70,7 @@ public partial class MainWindow : Window
         if (!_initialized || _refreshingDevices) return;
         if (DeviceBox.SelectedItem is not AudioDeviceInfo selected) return;
         _settings.DeviceName = selected.Id;
+        DeviceStatus.Text = "Selected: " + selected.Name;
         SaveSettings();
     }
     private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized) SaveSettings(); }

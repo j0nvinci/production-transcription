@@ -7,7 +7,7 @@
  <Window.Resources>
   <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#F2F5FA"/></Style>
   <Style TargetType="TextBox"><Setter Property="Padding" Value="6"/><Setter Property="Margin" Value="0,0,8,0"/></Style>
-  <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,0,10,0"/></Style>
+  <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,0,10,0"/><Setter Property="Foreground" Value="#17202B"/><Setter Property="Background" Value="#FFFFFF"/></Style>
  </Window.Resources>
  <DockPanel Margin="18">
   <StackPanel DockPanel.Dock="Top">
@@ -33,10 +33,11 @@
      <TextBlock Text="Audio input device" Margin="0,0,0,5"/>
      <DockPanel>
       <Button DockPanel.Dock="Right" Content="Refresh" Padding="8,2" Margin="5,0,0,0" Click="RefreshDevicesClicked"/>
-      <ComboBox x:Name="DeviceBox" Width="270" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="DeviceSelectionChanged"/>
+      <ComboBox x:Name="DeviceBox" Width="270" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="DeviceSelectionChanged" Foreground="#17202B" Background="White"/>
      </DockPanel>
     </StackPanel>
    </WrapPanel>
+   <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
    <DockPanel Margin="0,0,0,10">
     <Button DockPanel.Dock="Right" Content="+ Add source" Padding="10,5" Click="AddSourceClicked"/>
     <TextBlock Text="Transcription source mapping" FontSize="17" FontWeight="SemiBold"/>
