@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows.Data;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
@@ -12,6 +13,9 @@ public partial class MainWindow : Window
     private readonly SettingsWindow _settingsWindow;
     private readonly Services.TranscriptCensor _censor = new();
     private readonly ObservableCollection<ChatMessage> _messages = new();
+    private readonly ObservableCollection<ChannelOption> _channels = new();
+    private ICollectionView? _view;
+    private string? _selectedChannel;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private static readonly Brush[] Palette = new Brush[]
     {
@@ -23,11 +27,17 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ChatList.ItemsSource = _messages;
+        _view = CollectionViewSource.GetDefaultView(_messages);
+        _view.Filter = entry => entry is ChatMessage msg && (_selectedChannel is null || msg.Source == _selectedChannel);
+        ChatList.ItemsSource = _view;
+        ChannelList.ItemsSource = _channels;
         _settingsWindow = new SettingsWindow();
+        _settingsWindow.SourcesChanged += RefreshChannels;
+        RefreshChannels();
         _settingsWindow.SourceColorChanged += (name, hex) =>
         {
             _sourceColors.Remove(name);
+            RefreshChannels();
             Brush brush = ColorFor(name);
             foreach (var item in _messages.Where(v => v.Source == name))
                 item.Accent = brush;
@@ -47,7 +57,7 @@ public partial class MainWindow : Window
                 _messages.Add(item);
             }
             else item.Words = words;
-            ChatList.ScrollIntoView(item);
+            if (_selectedChannel is null || _selectedChannel == source) ChatList.ScrollIntoView(item);
         };
         _settingsWindow.TranscriptReceived += (source, words) =>
         {
@@ -73,6 +83,22 @@ public partial class MainWindow : Window
         };
         _statusTimer.Start();
         Closing += (_, _) => { _statusTimer.Stop(); _settingsWindow.Shutdown(); };
+    }
+    public sealed record ChannelOption(string Name, string Detail, Brush Accent, string? SourceName);
+    private void RefreshChannels()
+    {
+        _channels.Clear();
+        _channels.Add(new ChannelOption("All", "All communications", Brushes.White, null));
+        foreach (var channel in _settingsWindow.Channels)
+            _channels.Add(new ChannelOption(channel.Name, "Input " + channel.Input, ColorFor(channel.Name), channel.Name));
+        ChannelList.SelectedItem = _channels.FirstOrDefault(v => v.SourceName == _selectedChannel) ?? _channels[0];
+    }
+    private void ChannelSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (ChannelList.SelectedItem is not ChannelOption choice) return;
+        _selectedChannel = choice.SourceName;
+        ViewTitle.Text = choice.SourceName ?? "All communications";
+        _view?.Refresh();
     }
     private Brush ColorFor(string source)
     {

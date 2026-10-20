@@ -36,7 +36,47 @@
       HorizontalAlignment="Right"/>
    </DockPanel>
   </Border>
-  <Border Grid.Row="2" Background="#101824" BorderBrush="#283749" BorderThickness="1" CornerRadius="16">
+  <Grid Grid.Row="2">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border Grid.Column="0" Background="#151B29" BorderBrush="#2B394B" BorderThickness="1" CornerRadius="13" Margin="0,0,10,0">
+    <DockPanel>
+     <TextBlock Text="CHANNELS" DockPanel.Dock="Top" FontSize="11" Foreground="#91A5BC"
+       FontWeight="Bold" Margin="14,15,0,12"/>
+     <ListBox x:Name="ChannelList" Background="Transparent" BorderThickness="0"
+      Foreground="#F3F6FD" SelectionChanged="ChannelSelectionChanged">
+      <ListBox.ItemContainerStyle>
+       <Style TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="9,10"/>
+        <Setter Property="Margin" Value="5,2"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Style.Triggers><Trigger Property="IsSelected" Value="True">
+         <Setter Property="Background" Value="#303A4B"/>
+        </Trigger></Style.Triggers>
+       </Style>
+      </ListBox.ItemContainerStyle>
+      <ListBox.ItemTemplate>
+       <DataTemplate>
+        <Grid>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Border Width="23" Height="23" BorderBrush="{Binding Accent}" BorderThickness="2" CornerRadius="12">
+          <TextBlock Text="●" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+         </Border>
+         <StackPanel Grid.Column="1" Margin="6,0,0,0">
+          <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding Detail}" FontSize="10" Foreground="#91A5BC"/>
+         </StackPanel>
+        </Grid>
+       </DataTemplate>
+      </ListBox.ItemTemplate>
+     </ListBox>
+    </DockPanel>
+   </Border>
+   <Grid Grid.Column="1">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Grid.Row="0" Background="#151D2A" CornerRadius="12" Padding="12,10" Margin="0,0,0,8">
+     <TextBlock x:Name="ViewTitle" Text="All communications" FontSize="13" FontWeight="SemiBold"/>
+    </Border>
+  <Border Grid.Row="1" Background="#101824" BorderBrush="#283749" BorderThickness="1" CornerRadius="16">
    <ListBox x:Name="ChatList" Margin="8" Background="Transparent" BorderThickness="0" Foreground="#F2F6FC"
     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
@@ -54,7 +94,7 @@
     </ListBox.ItemContainerStyle>
     <ListBox.ItemTemplate>
      <DataTemplate>
-      <Border Background="#1A2636" BorderBrush="#2A3B4F" BorderThickness="1" CornerRadius="12" Padding="15,13"
+      <Border Background="Transparent" BorderThickness="0" Padding="10,7"
        MaxWidth="900" HorizontalAlignment="Stretch">
        <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -75,6 +115,8 @@
     </ListBox.ItemTemplate>
    </ListBox>
   </Border>
+   </Grid>
+  </Grid>
   <Grid Grid.Row="3" Margin="2,14,2,0">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <TextBlock x:Name="StatusText" Text="Ready · awaiting capture" Foreground="#9BADC1"

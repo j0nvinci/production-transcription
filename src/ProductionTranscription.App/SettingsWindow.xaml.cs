@@ -25,6 +25,8 @@ public partial class SettingsWindow : Window
     public event Action<string, string>? PartialTranscriptReceived;
     public event Action<string>? StatusChanged;
     public event Action<string, string>? SourceColorChanged;
+    public event Action? SourcesChanged;
+    public IReadOnlyList<(string Name, int Input, bool Enabled)> Channels => _settings.Sources.Select(v => (v.Name, v.InputNumber, v.Enabled)).ToArray();
     private bool _shuttingDown;
     public SettingsWindow()
     {
@@ -288,7 +290,7 @@ public partial class SettingsWindow : Window
     {
         if (_initialized) SaveSettings();
     }
-    private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized && !_capturing) SaveSettings(); }
+    private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized && !_capturing) { SaveSettings(); SourcesChanged?.Invoke(); } }
     private void SourceInputLostFocus(object sender, RoutedEventArgs e)
     {
         if (!_initialized || _capturing || sender is not TextBox box ||
@@ -331,6 +333,7 @@ public partial class SettingsWindow : Window
     {
         RefreshSourceMeters();
         SaveSettings();
+        SourcesChanged?.Invoke();
     }
     private void RefreshSourceMeters()
     {
