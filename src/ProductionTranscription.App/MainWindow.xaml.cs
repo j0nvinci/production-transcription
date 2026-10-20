@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using ProductionTranscription.App.Models;
 using ProductionTranscription.App.Services;
 namespace ProductionTranscription.App;
@@ -10,20 +11,34 @@ public partial class MainWindow : Window
     private bool _initialized;
     private bool _refreshingDevices;
     private int? _detectedChannels;
+    private readonly AudioCaptureSession _capture = new();
+    private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
+    private List<SourceMeter> _meters = new();
+    private bool _capturing;
     public MainWindow()
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
         BackendBox.SelectedIndex = _settings.Backend == AudioBackend.Asio ? 0 : 1;
         ProfileBox.SelectedIndex = (int)_settings.Profile;
-        SourcesList.ItemsSource = _settings.Sources;
+        RefreshSourceMeters();
         _initialized = true;
         RefreshDevices();
-        Closing += (_, _) => SaveSettings();
+        _capture.CaptureError += message => Dispatcher.BeginInvoke(() =>
+        {
+            if (_capturing) { StopCapture(); CaptureStatus.Text = "Capture stopped: " + message; }
+        });
+        _meterTimer.Tick += (_, _) =>
+        {
+            foreach (var meter in _meters)
+                meter.Level = _capturing && meter.Source.Enabled ?
+                    Math.Max(_capture.TakePeak(meter.Source.InputNumber) * 100, meter.Level * .65) : 0;
+        };
+        Closing += (_, _) => { StopCapture(); SaveSettings(); };
     }
     private void SettingsChanged(object sender, RoutedEventArgs e)
     {
-        if (!_initialized) return;
+        if (!_initialized || _capturing) return;
         AudioBackend backend = BackendBox.SelectedIndex == 0 ? AudioBackend.Asio : AudioBackend.Wasapi;
         if (_settings.Backend != backend)
         {
@@ -35,7 +50,7 @@ public partial class MainWindow : Window
         _settings.Profile = (TranscriptionProfile)Math.Max(0, ProfileBox.SelectedIndex);
         SaveSettings();
     }
-    private void RefreshDevicesClicked(object sender, RoutedEventArgs e) => RefreshDevices();
+    private void RefreshDevicesClicked(object sender, RoutedEventArgs e) { if (!_capturing) RefreshDevices(); }
     private void RefreshDevices()
     {
         if (!_initialized) return;
@@ -69,7 +84,7 @@ public partial class MainWindow : Window
     }
     private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_initialized || _refreshingDevices) return;
+        if (!_initialized || _refreshingDevices || _capturing) return;
         if (DeviceBox.SelectedItem is not AudioDeviceInfo selected) return;
         _settings.DeviceName = selected.Id;
         _detectedChannels = null;
@@ -78,7 +93,7 @@ public partial class MainWindow : Window
     }
     private void InspectDeviceClicked(object sender, RoutedEventArgs e)
     {
-        if (DeviceBox.SelectedItem is not AudioDeviceInfo selected)
+        if (DeviceBox.SelectedItem is not AudioDeviceInfo selected || _capturing)
         {
             DeviceStatus.Text = "Select a detected device first.";
             return;
@@ -100,11 +115,12 @@ public partial class MainWindow : Window
                 ". ASIO drivers may be busy in another application.";
         }
     }
-    private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized) SaveSettings(); }
+    private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized && !_capturing) SaveSettings(); }
     private void SourceInputLostFocus(object sender, RoutedEventArgs e)
     {
-        if (!_initialized) return;
-        if (sender is not TextBox box || box.DataContext is not SourceConfig source) return;
+        if (!_initialized || _capturing) return;
+        if (sender is not TextBox box || box.DataContext is not SourceMeter meter) return;
+        var source = meter.Source;
         if (!int.TryParse(box.Text, out var input) || input < 1)
         {
             box.Text = source.InputNumber.ToString();
@@ -124,6 +140,7 @@ public partial class MainWindow : Window
     }
     private void AddSourceClicked(object sender, RoutedEventArgs e)
     {
+        if (_capturing) return;
         int suggested = Enumerable.Range(1, Math.Max(1, _detectedChannels ?? 32))
             .FirstOrDefault(n => _settings.Sources.All(s => s.InputNumber != n));
         _settings.Sources.Add(new SourceConfig
@@ -135,6 +152,7 @@ public partial class MainWindow : Window
     }
     private void RemoveSourceClicked(object sender, RoutedEventArgs e)
     {
+        if (_capturing) return;
         if (sender is Button { Tag: SourceConfig source })
         {
             if (MessageBox.Show($"Remove '{source.Name}' from the source configuration?",
@@ -147,9 +165,47 @@ public partial class MainWindow : Window
     }
     private void RefreshSources()
     {
-        SourcesList.ItemsSource = null;
-        SourcesList.ItemsSource = _settings.Sources;
+        RefreshSourceMeters();
         SaveSettings();
+    }
+    private void RefreshSourceMeters()
+    {
+        _meters = _settings.Sources.Select(s => new SourceMeter(s)).ToList();
+        SourcesList.ItemsSource = _meters;
+    }
+
+    private void StartCaptureClicked(object sender, RoutedEventArgs e)
+    {
+        if (_capturing || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
+        try
+        {
+            _capture.Start(_settings.Backend, device.Id, _settings.Sources);
+            _capturing = true;
+            StartCaptureButton.IsEnabled = false;
+            StopCaptureButton.IsEnabled = true;
+            BackendBox.IsEnabled = false;
+            DeviceBox.IsEnabled = false;
+            _meterTimer.Start();
+            CaptureStatus.Text = "Capture active • Metering selected physical inputs • No audio stored";
+        }
+        catch (Exception ex)
+        {
+            CaptureStatus.Text = "Unable to start capture: " + ex.Message;
+            MessageBox.Show(ex.Message, "Audio capture", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+    private void StopCaptureClicked(object sender, RoutedEventArgs e) => StopCapture();
+    private void StopCapture()
+    {
+        _meterTimer.Stop();
+        _capture.Stop();
+        _capturing = false;
+        StartCaptureButton.IsEnabled = true;
+        StopCaptureButton.IsEnabled = false;
+        BackendBox.IsEnabled = true;
+        DeviceBox.IsEnabled = true;
+        foreach (var meter in _meters) meter.Level = 0;
+        CaptureStatus.Text = "Capture stopped";
     }
     private void SaveSettings()
     {

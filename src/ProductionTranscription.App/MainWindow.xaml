@@ -12,7 +12,7 @@
  <DockPanel Margin="18">
   <StackPanel DockPanel.Dock="Top">
    <TextBlock Text="PRODUCTION TRANSCRIPTION" FontSize="22" FontWeight="SemiBold"/>
-   <TextBlock Text="Detected audio devices — capture and transcription not yet implemented" Margin="0,6,0,16" Foreground="#A0B0C0"/>
+   <TextBlock Text="v0.2 — Live audio meters (transcription not yet implemented)" Margin="0,6,0,16" Foreground="#A0B0C0"/>
    <WrapPanel Margin="0,0,0,12">
     <StackPanel Margin="0,0,15,10">
      <TextBlock Text="Audio backend" Margin="0,0,0,5"/>
@@ -37,7 +37,11 @@
      </DockPanel>
     </StackPanel>
    </WrapPanel>
+   <WrapPanel Margin="0,0,0,8">
+    <Button x:Name="StartCaptureButton" Content="Start capture" Click="StartCaptureClicked" Padding="12,6" Margin="0,0,8,0"/>
+    <Button x:Name="StopCaptureButton" Content="Stop" Click="StopCaptureClicked" Padding="12,6" Margin="0,0,8,0" IsEnabled="False"/>
    <Button Content="Inspect selected device channels" Padding="10,6" HorizontalAlignment="Left" Margin="0,0,0,8" Click="InspectDeviceClicked"/>
+   </WrapPanel>
    <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
    <DockPanel Margin="0,0,0,10">
     <Button DockPanel.Dock="Right" Content="+ Add source" Padding="10,5" Click="AddSourceClicked"/>
@@ -45,22 +49,23 @@
    </DockPanel>
   </StackPanel>
   <TextBlock DockPanel.Dock="Bottom" Foreground="#A0B0C0" Margin="0,10,0,0"
-    Text="Capture inactive • Settings are saved locally • Hardware discovery comes next"/>
+    x:Name="CaptureStatus" Text="Capture inactive • Live audio levels will appear after Start capture"/>
   <ScrollViewer VerticalScrollBarVisibility="Auto">
    <ItemsControl x:Name="SourcesList">
     <ItemsControl.ItemTemplate>
      <DataTemplate>
       <Border Margin="0,0,0,7" Padding="12" Background="#222C39" CornerRadius="8">
        <WrapPanel>
-        <CheckBox Content="On" IsChecked="{Binding Enabled, Mode=TwoWay}"
+        <CheckBox Content="On" IsChecked="{Binding Source.Enabled, Mode=TwoWay}"
           Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
-        <TextBox Width="195" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
+        <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
         <TextBlock Text="Input #" VerticalAlignment="Center" Margin="8,0,8,0"/>
-        <TextBox Width="55" Text="{Binding InputNumber, UpdateSourceTrigger=LostFocus}"
+        <TextBox Width="55" Text="{Binding Source.InputNumber, UpdateSourceTrigger=LostFocus}"
           LostFocus="SourceInputLostFocus"/>
-        <Button Content="Remove source" Tag="{Binding}" Margin="15,0,0,0"
+        <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
        </WrapPanel>
+       <ProgressBar Minimum="0" Maximum="100" Value="{Binding Level}" Height="9" Margin="0,10,0,0" Foreground="#33C5A8" Background="#0F1720"/>
       </Border>
      </DataTemplate>
     </ItemsControl.ItemTemplate>
