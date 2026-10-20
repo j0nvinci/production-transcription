@@ -23,7 +23,7 @@ public sealed class OfflineTranscription : IDisposable
         _model = new Model(modelPath);
         foreach (var source in sources)
         {
-            var queue = Channel.CreateBounded<(float[], int)>(new BoundedChannelOptions(24)
+            var queue = Channel.CreateBounded<(float[] samples, int rate)>(new BoundedChannelOptions(24)
             {
                 FullMode = BoundedChannelFullMode.DropOldest,
                 SingleReader = true,
