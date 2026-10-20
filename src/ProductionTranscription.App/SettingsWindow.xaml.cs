@@ -24,6 +24,7 @@ public partial class SettingsWindow : Window
     public event Action<string, string>? TranscriptReceived;
     public event Action<string, string>? PartialTranscriptReceived;
     public event Action<string>? StatusChanged;
+    public event Action<string, string>? SourceColorChanged;
     private bool _shuttingDown;
     public SettingsWindow()
     {
@@ -242,6 +243,47 @@ public partial class SettingsWindow : Window
         if (sender is TextBox box && _initialized && !_capturing) ValidateInput(box);
     }
 
+    public string ColorForSource(string name) =>
+        _settings.Sources.FirstOrDefault(v => v.Name == name)?.ColorHex ?? "";
+
+    private static bool TryColor(string input, out Color color)
+    {
+        color = Colors.Transparent;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(input, "^#[0-9A-Fa-f]{6}$")) return false;
+        try { color = (Color)ColorConverter.ConvertFromString(input)!; return true; }
+        catch { return false; }
+    }
+    private void SetSourceColor(SourceMeter meter, Color color)
+    {
+        meter.Source.ColorHex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        meter.RefreshColor();
+        SaveSettings();
+        SourceColorChanged?.Invoke(meter.Source.Name, meter.Source.ColorHex);
+    }
+    private void PickSourceColorClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: SourceMeter meter }) return;
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true, AnyColor = true };
+        if (TryColor(meter.Source.ColorHex, out var initial))
+            dialog.Color = System.Drawing.Color.FromArgb(initial.R, initial.G, initial.B);
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            SetSourceColor(meter, Color.FromRgb(dialog.Color.R, dialog.Color.G, dialog.Color.B));
+    }
+    private void ColorHexLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox box || box.Tag is not SourceMeter meter) return;
+        string entered = box.Text.Trim();
+        if (TryColor(entered, out var color)) SetSourceColor(meter, color);
+        else if (entered.Length == 0)
+        {
+            meter.Source.ColorHex = "";
+            meter.RefreshColor();
+            SaveSettings();
+            SourceColorChanged?.Invoke(meter.Source.Name, "");
+        }
+        else CaptureStatus.Text = "Invalid hex color. Use #RRGGBB.";
+        box.Text = meter.Source.ColorHex;
+    }
     private void GainChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_initialized) SaveSettings();

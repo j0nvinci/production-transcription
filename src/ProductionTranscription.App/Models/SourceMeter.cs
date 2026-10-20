@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Windows.Media;
 using System.Runtime.CompilerServices;
 
 namespace ProductionTranscription.App.Models;
@@ -18,6 +19,15 @@ public sealed class SourceMeter : INotifyPropertyChanged
         get => _level;
         set { if (Math.Abs(_level - value) < .01) return; _level = value; OnPropertyChanged(); }
     }
+    public Brush ColorPreview
+    {
+        get
+        {
+            try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(Source.ColorHex)!); }
+            catch { return Brushes.SlateGray; }
+        }
+    }
+    public void RefreshColor() => OnPropertyChanged(nameof(ColorPreview));
     public SourceMeter(SourceConfig source) => Source = source;
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

@@ -91,6 +91,15 @@
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>
+        <WrapPanel Margin="0,10,0,3">
+         <TextBlock Text="Speaker color" Width="100" VerticalAlignment="Center"/>
+         <Border Width="27" Height="27" CornerRadius="7" Background="{Binding ColorPreview}"
+          BorderThickness="1" BorderBrush="#64748B" Margin="0,0,9,0"/>
+         <Button Content="Pick color…" Tag="{Binding}" Click="PickSourceColorClicked" Padding="11,6" Margin="0,0,9,0"/>
+         <TextBox Width="110" Text="{Binding Source.ColorHex, Mode=OneWay}" Tag="{Binding}"
+          LostFocus="ColorHexLostFocus" ToolTip="Hex color: #RRGGBB"/>
+         <TextBlock Text="#RRGGBB" FontSize="11" Foreground="#92A7BD" VerticalAlignment="Center"/>
+        </WrapPanel>
         <TextBlock Text="{Binding ValidationMessage}" Foreground="#FF7777" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
         <DockPanel Margin="0,8,0,0">
          <TextBlock DockPanel.Dock="Left" Text="Digital gain" Width="85" VerticalAlignment="Center"/>
