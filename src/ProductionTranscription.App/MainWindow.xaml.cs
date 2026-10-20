@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using System.Collections.ObjectModel;
 using System.Windows.Media;
 using ProductionTranscription.App.Models;
 using ProductionTranscription.App.Services;
@@ -16,6 +17,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
     private bool _capturing;
+    private OfflineTranscription? _transcription;
+    private readonly ObservableCollection<string> _transcriptLines = new();
     public MainWindow()
     {
         InitializeComponent();
@@ -23,6 +26,7 @@ public partial class MainWindow : Window
         BackendBox.SelectedIndex = _settings.Backend == AudioBackend.Asio ? 0 : 1;
         ProfileBox.SelectedIndex = (int)_settings.Profile;
         RefreshSourceMeters();
+        TranscriptList.ItemsSource = _transcriptLines;
         _initialized = true;
         RefreshDevices();
         _capture.CaptureError += message => Dispatcher.BeginInvoke(() =>
@@ -227,6 +231,20 @@ public partial class MainWindow : Window
                     return;
                 }
             }
+            string modelPath = System.IO.Path.Combine(AppContext.BaseDirectory, "models", "vosk-model-small-en-us-0.15");
+            if (!System.IO.Directory.Exists(modelPath))
+            {
+                CaptureStatus.Text = "Offline model missing. Copy the unzipped English Vosk model into models\\vosk-model-small-en-us-0.15 next to the app.";
+                return;
+            }
+            _transcription = new OfflineTranscription(modelPath, _settings.Sources.Where(s => s.Enabled).ToArray(),
+                (source, words) => Dispatcher.BeginInvoke(() =>
+                {
+                    _transcriptLines.Add($"{DateTime.Now:HH:mm:ss}  [{source}] {words}");
+                    while (_transcriptLines.Count > 300) _transcriptLines.RemoveAt(0);
+                    TranscriptList.ScrollIntoView(_transcriptLines[^1]);
+                }));
+            _capture.SourceAudioAvailable += OnSourceAudio;
             _capture.Start(_settings.Backend, device.Id, _settings.Sources);
             _capturing = true;
             StartCaptureButton.IsEnabled = false;
@@ -238,15 +256,23 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _capture.SourceAudioAvailable -= OnSourceAudio;
+            _transcription?.Dispose();
+            _transcription = null;
             CaptureStatus.Text = "Unable to start capture: " + ex.Message;
             MessageBox.Show(ex.Message, "Audio capture", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
+    private void OnSourceAudio(SourceConfig source, float[] samples, int sampleRate) =>
+        _transcription?.Submit(source, samples, sampleRate);
     private void StopCaptureClicked(object sender, RoutedEventArgs e) => StopCapture();
     private void StopCapture()
     {
         _meterTimer.Stop();
         _capture.Stop();
+        _capture.SourceAudioAvailable -= OnSourceAudio;
+        _transcription?.Dispose();
+        _transcription = null;
         _capturing = false;
         StartCaptureButton.IsEnabled = true;
         StopCaptureButton.IsEnabled = false;

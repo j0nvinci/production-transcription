@@ -12,7 +12,7 @@
  <DockPanel Margin="18">
   <StackPanel DockPanel.Dock="Top">
    <TextBlock Text="PRODUCTION TRANSCRIPTION" FontSize="22" FontWeight="SemiBold"/>
-   <TextBlock Text="v0.2 — Live audio meters (transcription not yet implemented)" Margin="0,6,0,16" Foreground="#A0B0C0"/>
+   <TextBlock Text="v0.3 — Offline CPU transcription preview" Margin="0,6,0,16" Foreground="#A0B0C0"/>
    <WrapPanel Margin="0,0,0,12">
     <StackPanel Margin="0,0,15,10">
      <TextBlock Text="Audio backend" Margin="0,0,0,5"/>
@@ -49,7 +49,9 @@
   </StackPanel>
   <TextBlock DockPanel.Dock="Bottom" Foreground="#A0B0C0" Margin="0,10,0,0"
     x:Name="CaptureStatus" Text="Capture inactive • Live audio levels will appear after Start capture"/>
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
    <ItemsControl x:Name="SourcesList">
     <ItemsControl.ItemTemplate>
      <DataTemplate>
@@ -79,5 +81,10 @@
     </ItemsControl.ItemTemplate>
    </ItemsControl>
   </ScrollViewer>
+  <DockPanel Grid.Row="1" Margin="0,10,0,0">
+   <TextBlock DockPanel.Dock="Top" Text="Live transcript (session only)" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
+   <ListBox x:Name="TranscriptList" Background="#222C39" Foreground="#F2F5FA"/>
+  </DockPanel>
+  </Grid>
  </DockPanel>
 </Window>
