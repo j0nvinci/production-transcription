@@ -10,6 +10,7 @@ namespace ProductionTranscription.App;
 public partial class MainWindow : Window
 {
     private readonly SettingsWindow _settingsWindow;
+    private readonly Services.TranscriptCensor _censor = new();
     private readonly ObservableCollection<ChatMessage> _messages = new();
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private static readonly Brush[] Palette = new Brush[]
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
         _settingsWindow = new SettingsWindow();
         _settingsWindow.PartialTranscriptReceived += (source, words) =>
         {
+            words = _censor.Censor(words);
             if (string.IsNullOrWhiteSpace(words))
             {
                 if (_drafts.Remove(source, out var stale)) _messages.Remove(stale);
@@ -42,6 +44,7 @@ public partial class MainWindow : Window
         };
         _settingsWindow.TranscriptReceived += (source, words) =>
         {
+            words = _censor.Censor(words);
             if (_drafts.Remove(source, out var item))
             {
                 item.Words = words;
