@@ -43,11 +43,16 @@
      <TextBlock Text="Recognition engine" Margin="0,0,0,5"/>
      <ComboBox x:Name="EngineBox" Width="220" HorizontalAlignment="Left" SelectionChanged="EngineChanged" Margin="0,0,0,8">
       <ComboBoxItem Content="Vosk — live"/>
-      <ComboBoxItem Content="Whisper — CPU segments"/>
+      <ComboBoxItem Content="Whisper — local CPU"/>
+      <ComboBoxItem Content="Groq — cloud Whisper"/>
      </ComboBox>
-     <TextBlock Text="Offline speech recognition model" Margin="0,0,0,5"/>
+     <TextBlock Text="Recognition model" Margin="0,0,0,5"/>
      <ComboBox x:Name="ModelBox" DisplayMemberPath="Name" SelectedValuePath="Id"
         Width="370" HorizontalAlignment="Left" SelectionChanged="ModelChanged"/>
+     <TextBlock Text="Groq API key (protected for your Windows account)" Margin="0,8,0,4"/>
+     <PasswordBox x:Name="GroqKeyBox" Width="370" HorizontalAlignment="Left" PasswordChanged="GroqKeyChanged"/>
+     <TextBlock Text="Cloud mode uploads gated speech audio. Offline engines never upload audio."
+      Foreground="#A0B0C0" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
     </StackPanel>
    </DockPanel>
    <WrapPanel Margin="0,0,0,8">

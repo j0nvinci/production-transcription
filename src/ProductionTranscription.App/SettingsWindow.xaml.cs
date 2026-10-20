@@ -13,6 +13,7 @@ public partial class SettingsWindow : Window
     private bool _initialized;
     private bool _refreshingDevices;
     private bool _refreshingModels;
+    private bool _loadingKey;
     private int? _detectedChannels;
     private readonly AudioCaptureSession _capture = new();
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
@@ -31,6 +32,9 @@ public partial class SettingsWindow : Window
         BackendBox.SelectedIndex = _settings.Backend == AudioBackend.Asio ? 0 : 1;
         ProfileBox.SelectedIndex = (int)_settings.Profile;
         EngineBox.SelectedIndex = (int)_settings.RecognitionEngine;
+        _loadingKey = true;
+        GroqKeyBox.Password = GroqKeyStore.Load();
+        _loadingKey = false;
         RefreshSourceMeters();
         _initialized = true;
         RefreshDevices();
@@ -53,10 +57,17 @@ public partial class SettingsWindow : Window
         };
     }
     private sealed record InstalledModel(string Id, string Name);
+    private void GroqKeyChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized || _loadingKey) return;
+        try { GroqKeyStore.Save(GroqKeyBox.Password); }
+        catch (Exception ex) { CaptureStatus.Text = "Key storage failed: " + ex.Message; }
+    }
     private void EngineChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized || _capturing || _starting) return;
-        _settings.RecognitionEngine = EngineBox.SelectedIndex == 1 ? RecognitionEngine.Whisper : RecognitionEngine.Vosk;
+        _settings.RecognitionEngine = EngineBox.SelectedIndex == 2 ? RecognitionEngine.Groq :
+            EngineBox.SelectedIndex == 1 ? RecognitionEngine.Whisper : RecognitionEngine.Vosk;
         RefreshModels();
         SaveSettings();
     }
@@ -85,8 +96,13 @@ public partial class SettingsWindow : Window
                         .Select(file => new InstalledModel(System.IO.Path.GetFileName(file), "Whisper · " + System.IO.Path.GetFileName(file)))
                         .OrderBy(item => item.Name).ToList()
                     : new List<InstalledModel>();
+            if (_settings.RecognitionEngine == RecognitionEngine.Groq)
+                options = new List<InstalledModel> {
+                    new("whisper-large-v3-turbo", "Groq Whisper Large V3 Turbo"),
+                    new("whisper-large-v3", "Groq Whisper Large V3")
+                };
             ModelBox.ItemsSource = options;
-            ModelBox.SelectedValue = _settings.ModelName;
+            ModelBox.SelectedValue = _settings.RecognitionEngine == RecognitionEngine.Groq ? _settings.GroqModel : _settings.ModelName;
             if (ModelBox.SelectedItem is null && options.Count > 0)
             {
                 ModelBox.SelectedItem = options[0];
@@ -103,7 +119,8 @@ public partial class SettingsWindow : Window
     {
         if (!_initialized || _refreshingModels || _capturing || _starting ||
             ModelBox.SelectedItem is not InstalledModel selection) return;
-        _settings.ModelName = selection.Id;
+        if (_settings.RecognitionEngine == RecognitionEngine.Groq) _settings.GroqModel = selection.Id;
+        else _settings.ModelName = selection.Id;
         SaveSettings();
     }
 
@@ -308,7 +325,8 @@ public partial class SettingsWindow : Window
                 return;
             }
             string modelPath = System.IO.Path.Combine(AppContext.BaseDirectory, "models", chosen.Id);
-            if (!(_settings.RecognitionEngine == RecognitionEngine.Vosk ? System.IO.Directory.Exists(modelPath) : System.IO.File.Exists(modelPath)))
+            if (_settings.RecognitionEngine != RecognitionEngine.Groq &&
+                !(_settings.RecognitionEngine == RecognitionEngine.Vosk ? System.IO.Directory.Exists(modelPath) : System.IO.File.Exists(modelPath)))
             {
                 CaptureStatus.Text = "Selected model is missing; refresh the model list.";
                 StatusChanged?.Invoke(CaptureStatus.Text);
@@ -320,12 +338,21 @@ public partial class SettingsWindow : Window
             DeviceBox.IsEnabled = false;
             ModelBox.IsEnabled = false;
             EngineBox.IsEnabled = false;
-            CaptureStatus.Text = "Loading offline recognition model: " + System.IO.Path.GetFileName(modelPath) + " …";
+            GroqKeyBox.IsEnabled = false;
+            CaptureStatus.Text = _settings.RecognitionEngine == RecognitionEngine.Groq
+                ? "Starting Groq cloud transcription; audio will be uploaded…"
+                : "Loading offline recognition model: " + System.IO.Path.GetFileName(modelPath) + " …";
             StatusChanged?.Invoke(CaptureStatus.Text);
             var selectedSources = _settings.Sources.Where(s => s.Enabled).ToArray();
             Action<string, string> emit = (source, words) =>
                 Dispatcher.BeginInvoke(() => TranscriptReceived?.Invoke(source, words));
-            if (_settings.RecognitionEngine == RecognitionEngine.Whisper)
+            if (_settings.RecognitionEngine == RecognitionEngine.Groq)
+            {
+                string key = GroqKeyStore.Load();
+                if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("Enter your Groq API key in Settings.");
+                _transcription = new GroqTranscription(key, chosen.Id, selectedSources, emit);
+            }
+            else if (_settings.RecognitionEngine == RecognitionEngine.Whisper)
             {
                 _transcription = await Task.Run(() => (ITranscriptionSession)new WhisperTranscription(modelPath, selectedSources, emit));
             }
@@ -360,6 +387,7 @@ public partial class SettingsWindow : Window
             DeviceBox.IsEnabled = true;
             ModelBox.IsEnabled = true;
             EngineBox.IsEnabled = true;
+            GroqKeyBox.IsEnabled = true;
             _capture.SourceAudioAvailable -= OnSourceAudio;
             _transcription?.Dispose();
             _transcription = null;
@@ -385,6 +413,7 @@ public partial class SettingsWindow : Window
         DeviceBox.IsEnabled = true;
         ModelBox.IsEnabled = ModelBox.Items.Count > 0;
         EngineBox.IsEnabled = true;
+        GroqKeyBox.IsEnabled = true;
         foreach (var meter in _meters) meter.Level = 0;
         CaptureStatus.Text = "Capture stopped";
     }
