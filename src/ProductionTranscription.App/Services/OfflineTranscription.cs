@@ -40,7 +40,7 @@ public sealed class OfflineTranscription : IDisposable
                     string lastPartial = "";
                     bool heardSignal = false;
                     int quietSamples = 0;
-                    const double gateRms = 0.003; // Approx. -50 dBFS, preliminary gate.
+                    // Each source uses an adjustable post-gain threshold.
                     while (await queue.Reader.WaitToReadAsync(_stop.Token))
                         while (queue.Reader.TryRead(out var block))
                         {
@@ -50,6 +50,7 @@ public sealed class OfflineTranscription : IDisposable
                             // Allow 1 second of trailing silence for endpoint detection.
                             double energy = 0;
                             foreach (float value in converted) energy += (double)value * value;
+                            double gateRms = Math.Pow(10, Math.Clamp(source.GateDbfs, -80, -20) / 20.0);
                             bool active = Math.Sqrt(energy / converted.Length) >= gateRms;
                             if (active)
                             {
@@ -60,7 +61,17 @@ public sealed class OfflineTranscription : IDisposable
                             {
                                 if (!heardSignal) continue;
                                 quietSamples += converted.Length;
-                                if (quietSamples > 16000) continue;
+                                if (quietSamples > 16000)
+                                {
+                                    if (heardSignal)
+                                    {
+                                        Publish(recognizer.FinalResult(), source.Name, onTranscript);
+                                        PartialRecognized?.Invoke(source.Name, "");
+                                        heardSignal = false;
+                                        lastPartial = "";
+                                    }
+                                    continue;
+                                }
                             }
                             // Convert to explicit signed 16-bit PCM for Vosk.
                             var pcm = new short[converted.Length];
