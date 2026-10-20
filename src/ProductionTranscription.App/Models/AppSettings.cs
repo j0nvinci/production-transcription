@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 namespace ProductionTranscription.App.Models;
 
 public enum AudioBackend { Asio, Wasapi }
+public enum RecognitionEngine { Vosk, Whisper }
 public enum TranscriptionProfile { SpeedFirst, Balanced, AccuracyFirst }
 public sealed class SourceConfig
 {
@@ -16,6 +17,7 @@ public sealed class AppSettings
     public AudioBackend Backend { get; set; } = AudioBackend.Asio;
     public string DeviceName { get; set; } = "";
     public string ModelName { get; set; } = "";
+    public RecognitionEngine RecognitionEngine { get; set; } = RecognitionEngine.Vosk;
     public TranscriptionProfile Profile { get; set; } = TranscriptionProfile.Balanced;
     public List<SourceConfig> Sources { get; set; } = new()
     {

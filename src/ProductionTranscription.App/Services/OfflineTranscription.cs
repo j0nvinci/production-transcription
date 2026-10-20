@@ -7,7 +7,7 @@ using Vosk;
 namespace ProductionTranscription.App.Services;
 
 /// <summary>One bounded stream per source. Vosk executes on background tasks, never inside capture callbacks.</summary>
-public sealed class OfflineTranscription : IDisposable
+public sealed class OfflineTranscription : ITranscriptionSession
 {
     private sealed class Worker
     {

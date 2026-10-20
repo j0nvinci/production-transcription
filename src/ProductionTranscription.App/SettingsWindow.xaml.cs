@@ -19,7 +19,7 @@ public partial class SettingsWindow : Window
     private List<SourceMeter> _meters = new();
     private bool _capturing;
     private bool _starting;
-    private OfflineTranscription? _transcription;
+    private ITranscriptionSession? _transcription;
     public event Action<string, string>? TranscriptReceived;
     public event Action<string, string>? PartialTranscriptReceived;
     public event Action<string>? StatusChanged;
@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
         _settings = SettingsStore.Load();
         BackendBox.SelectedIndex = _settings.Backend == AudioBackend.Asio ? 0 : 1;
         ProfileBox.SelectedIndex = (int)_settings.Profile;
+        EngineBox.SelectedIndex = (int)_settings.RecognitionEngine;
         RefreshSourceMeters();
         _initialized = true;
         RefreshDevices();
@@ -52,6 +53,13 @@ public partial class SettingsWindow : Window
         };
     }
     private sealed record InstalledModel(string Id, string Name);
+    private void EngineChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized || _capturing || _starting) return;
+        _settings.RecognitionEngine = EngineBox.SelectedIndex == 1 ? RecognitionEngine.Whisper : RecognitionEngine.Vosk;
+        RefreshModels();
+        SaveSettings();
+    }
     private void RefreshModelsClicked(object sender, RoutedEventArgs e)
     {
         if (!_capturing && !_starting) RefreshModels();
@@ -71,6 +79,12 @@ public partial class SettingsWindow : Window
                     .Select(p => new InstalledModel(System.IO.Path.GetFileName(p), "Vosk · " + System.IO.Path.GetFileName(p)))
                     .OrderBy(p => p.Name).ToList()
                 : new List<InstalledModel>();
+            if (_settings.RecognitionEngine == RecognitionEngine.Whisper)
+                options = System.IO.Directory.Exists(root)
+                    ? System.IO.Directory.GetFiles(root, "ggml-*.bin")
+                        .Select(file => new InstalledModel(System.IO.Path.GetFileName(file), "Whisper · " + System.IO.Path.GetFileName(file)))
+                        .OrderBy(item => item.Name).ToList()
+                    : new List<InstalledModel>();
             ModelBox.ItemsSource = options;
             ModelBox.SelectedValue = _settings.ModelName;
             if (ModelBox.SelectedItem is null && options.Count > 0)
@@ -80,7 +94,7 @@ public partial class SettingsWindow : Window
             }
             ModelBox.IsEnabled = options.Count > 0;
             if (options.Count == 0)
-                CaptureStatus.Text = "No installed Vosk models detected. Extract a Vosk model into the models directory.";
+                CaptureStatus.Text = "No models detected for the selected engine in models directory.";
         }
         finally { _refreshingModels = false; }
         SaveSettings();
@@ -289,12 +303,12 @@ public partial class SettingsWindow : Window
             }
             if (ModelBox.SelectedItem is not InstalledModel chosen)
             {
-                CaptureStatus.Text = "Select an installed Vosk model in Settings.";
+                CaptureStatus.Text = "Select an installed model in Settings.";
                 StatusChanged?.Invoke(CaptureStatus.Text);
                 return;
             }
             string modelPath = System.IO.Path.Combine(AppContext.BaseDirectory, "models", chosen.Id);
-            if (!System.IO.Directory.Exists(modelPath))
+            if (!(_settings.RecognitionEngine == RecognitionEngine.Vosk ? System.IO.Directory.Exists(modelPath) : System.IO.File.Exists(modelPath)))
             {
                 CaptureStatus.Text = "Selected model is missing; refresh the model list.";
                 StatusChanged?.Invoke(CaptureStatus.Text);
@@ -305,11 +319,19 @@ public partial class SettingsWindow : Window
             BackendBox.IsEnabled = false;
             DeviceBox.IsEnabled = false;
             ModelBox.IsEnabled = false;
+            EngineBox.IsEnabled = false;
             CaptureStatus.Text = "Loading offline recognition model: " + System.IO.Path.GetFileName(modelPath) + " …";
             StatusChanged?.Invoke(CaptureStatus.Text);
             var selectedSources = _settings.Sources.Where(s => s.Enabled).ToArray();
-            _transcription = await Task.Run(() => new OfflineTranscription(modelPath, selectedSources,
-                (source, words) => Dispatcher.BeginInvoke(() => TranscriptReceived?.Invoke(source, words))));
+            Action<string, string> emit = (source, words) =>
+                Dispatcher.BeginInvoke(() => TranscriptReceived?.Invoke(source, words));
+            if (_settings.RecognitionEngine == RecognitionEngine.Whisper)
+            {
+                var cli = System.IO.Path.Combine(AppContext.BaseDirectory, "tools", "whisper-cli.exe");
+                _transcription = new WhisperTranscription(cli, modelPath, selectedSources, emit);
+            }
+            else
+                _transcription = await Task.Run(() => (ITranscriptionSession)new OfflineTranscription(modelPath, selectedSources, emit));
             CaptureStatus.Text = "Model loaded. Starting audio capture…";
             StatusChanged?.Invoke(CaptureStatus.Text);
             _transcription.PartialRecognized += (source, words) => Dispatcher.BeginInvoke(() =>
@@ -338,6 +360,7 @@ public partial class SettingsWindow : Window
             BackendBox.IsEnabled = true;
             DeviceBox.IsEnabled = true;
             ModelBox.IsEnabled = true;
+            EngineBox.IsEnabled = true;
             _capture.SourceAudioAvailable -= OnSourceAudio;
             _transcription?.Dispose();
             _transcription = null;
@@ -362,6 +385,7 @@ public partial class SettingsWindow : Window
         BackendBox.IsEnabled = true;
         DeviceBox.IsEnabled = true;
         ModelBox.IsEnabled = ModelBox.Items.Count > 0;
+        EngineBox.IsEnabled = true;
         foreach (var meter in _meters) meter.Level = 0;
         CaptureStatus.Text = "Capture stopped";
     }

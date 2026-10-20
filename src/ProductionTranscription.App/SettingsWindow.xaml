@@ -40,6 +40,11 @@
    <DockPanel Margin="0,0,0,12">
     <Button DockPanel.Dock="Right" Content="Refresh models" Click="RefreshModelsClicked" Padding="8,4" Margin="8,0,0,0"/>
     <StackPanel>
+     <TextBlock Text="Recognition engine" Margin="0,0,0,5"/>
+     <ComboBox x:Name="EngineBox" Width="220" HorizontalAlignment="Left" SelectionChanged="EngineChanged" Margin="0,0,0,8">
+      <ComboBoxItem Content="Vosk — live"/>
+      <ComboBoxItem Content="Whisper — CPU segments"/>
+     </ComboBox>
      <TextBlock Text="Offline speech recognition model" Margin="0,0,0,5"/>
      <ComboBox x:Name="ModelBox" DisplayMemberPath="Name" SelectedValuePath="Id"
         Width="370" HorizontalAlignment="Left" SelectionChanged="ModelChanged"/>
