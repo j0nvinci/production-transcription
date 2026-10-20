@@ -1,0 +1,27 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/ProductionTranscription.App/ProductionTranscription.App.csproj
+      - name: Build
+        run: dotnet build src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --no-restore
+      - name: Publish executable
+        run: dotnet publish src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/windows-x64
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-transcription-windows-x64
+          path: artifacts/windows-x64/
