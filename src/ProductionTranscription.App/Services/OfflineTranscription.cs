@@ -42,12 +42,28 @@ public sealed class OfflineTranscription : IDisposable
                         {
                             var converted = Resample(block.samples, block.rate, 16000);
                             if (converted.Length == 0) continue;
-                            if (recognizer.AcceptWaveform(converted, converted.Length))
+                            // Convert to explicit signed 16-bit PCM for Vosk.
+                            var pcm = new short[converted.Length];
+                            double sumSquares = 0;
+                            float peak = 0;
+                            for (int i = 0; i < converted.Length; i++)
+                            {
+                                float sample = Math.Clamp(converted[i], -1f, 1f);
+                                pcm[i] = (short)Math.Clamp((int)Math.Round(sample * 32767f), -32768, 32767);
+                                sumSquares += (double)sample * sample;
+                                peak = Math.Max(peak, Math.Abs(sample));
+                            }
+                            if (++pollCount % 150 == 0)
+                            {
+                                double rmsDb = 20 * Math.Log10(Math.Max(1e-6, Math.Sqrt(sumSquares / converted.Length)));
+                                Diagnostic?.Invoke($"Vosk input [{source.Name}]: {block.rate} Hz to 16 kHz; RMS {rmsDb:F0} dBFS; peak {peak:F3}");
+                            }
+                            if (recognizer.AcceptWaveform(pcm, pcm.Length))
                             {
                                 Publish(recognizer.Result(), source.Name, onTranscript);
                                 lastPartial = "";
                             }
-                            else if (++pollCount % 30 == 0)
+                            else if (pollCount % 30 == 0)
                             {
                                 using var partialDoc = JsonDocument.Parse(recognizer.PartialResult());
                                 string partial = partialDoc.RootElement.TryGetProperty("partial", out var value)
@@ -57,8 +73,7 @@ public sealed class OfflineTranscription : IDisposable
                                     lastPartial = partial;
                                     Diagnostic?.Invoke($"Hearing [{source.Name}]: {partial} (live preview)");
                                 }
-                                else if (partial.Length == 0 && pollCount % 150 == 0)
-                                    Diagnostic?.Invoke($"Audio received on {source.Name}; no recognized words yet.");
+
                             }
                         }
                 }
