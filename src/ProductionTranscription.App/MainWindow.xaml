@@ -37,6 +37,7 @@
      </DockPanel>
     </StackPanel>
    </WrapPanel>
+   <Button Content="Inspect selected device channels" Padding="10,6" HorizontalAlignment="Left" Margin="0,0,0,8" Click="InspectDeviceClicked"/>
    <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
    <DockPanel Margin="0,0,0,10">
     <Button DockPanel.Dock="Right" Content="+ Add source" Padding="10,5" Click="AddSourceClicked"/>
@@ -57,7 +58,7 @@
         <TextBlock Text="Input #" VerticalAlignment="Center" Margin="8,0,8,0"/>
         <TextBox Width="55" Text="{Binding InputNumber, UpdateSourceTrigger=LostFocus}"
           LostFocus="SourceInputLostFocus"/>
-        <Button Content="Remove" Tag="{Binding}" Margin="15,0,0,0"
+        <Button Content="Remove source" Tag="{Binding}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
        </WrapPanel>
       </Border>

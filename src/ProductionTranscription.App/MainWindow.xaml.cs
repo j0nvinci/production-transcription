@@ -9,6 +9,7 @@ public partial class MainWindow : Window
     private AppSettings _settings = new();
     private bool _initialized;
     private bool _refreshingDevices;
+    private int? _detectedChannels;
     public MainWindow()
     {
         InitializeComponent();
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
         {
             _settings.Backend = backend;
             _settings.DeviceName = "";
+            _detectedChannels = null;
             RefreshDevices();
         }
         _settings.Profile = (TranscriptionProfile)Math.Max(0, ProfileBox.SelectedIndex);
@@ -70,28 +72,75 @@ public partial class MainWindow : Window
         if (!_initialized || _refreshingDevices) return;
         if (DeviceBox.SelectedItem is not AudioDeviceInfo selected) return;
         _settings.DeviceName = selected.Id;
+        _detectedChannels = null;
         DeviceStatus.Text = "Selected: " + selected.Name;
         SaveSettings();
+    }
+    private void InspectDeviceClicked(object sender, RoutedEventArgs e)
+    {
+        if (DeviceBox.SelectedItem is not AudioDeviceInfo selected)
+        {
+            DeviceStatus.Text = "Select a detected device first.";
+            return;
+        }
+        try
+        {
+            int channelCount = AudioDeviceDiscovery.GetInputChannelCount(_settings.Backend, selected.Id);
+            _detectedChannels = channelCount;
+            int[] invalid = _settings.Sources.Where(s => s.Enabled && s.InputNumber > channelCount)
+                .Select(s => s.InputNumber).Distinct().ToArray();
+            DeviceStatus.Text = $"{selected.Name}: {channelCount} input channel(s) available." +
+                (invalid.Length == 0 ? " All enabled input mappings are within range." :
+                " Out-of-range configured inputs: " + string.Join(", ", invalid) + ".");
+        }
+        catch (Exception ex)
+        {
+            _detectedChannels = null;
+            DeviceStatus.Text = "Unable to inspect this device: " + ex.Message +
+                ". ASIO drivers may be busy in another application.";
+        }
     }
     private void SourceChanged(object sender, RoutedEventArgs e) { if (_initialized) SaveSettings(); }
     private void SourceInputLostFocus(object sender, RoutedEventArgs e)
     {
         if (!_initialized) return;
-        if (sender is TextBox box && int.TryParse(box.Text, out var input) && input > 0)
-            SaveSettings();
-        else
+        if (sender is not TextBox box || box.DataContext is not SourceConfig source) return;
+        if (!int.TryParse(box.Text, out var input) || input < 1)
+        {
+            box.Text = source.InputNumber.ToString();
             MessageBox.Show("Input numbers must be positive integers.", "Invalid channel",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (_detectedChannels.HasValue && input > _detectedChannels.Value)
+        {
+            box.Text = source.InputNumber.ToString();
+            MessageBox.Show($"The inspected device exposes only {_detectedChannels.Value} input channels.",
+                "Input outside device range", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        source.InputNumber = input;
+        SaveSettings();
     }
     private void AddSourceClicked(object sender, RoutedEventArgs e)
     {
-        _settings.Sources.Add(new SourceConfig());
+        int suggested = Enumerable.Range(1, Math.Max(1, _detectedChannels ?? 32))
+            .FirstOrDefault(n => _settings.Sources.All(s => s.InputNumber != n));
+        _settings.Sources.Add(new SourceConfig
+        {
+            Name = $"Source {_settings.Sources.Count + 1}",
+            InputNumber = suggested > 0 ? suggested : 1
+        });
         RefreshSources();
     }
     private void RemoveSourceClicked(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: SourceConfig source })
         {
+            if (MessageBox.Show($"Remove '{source.Name}' from the source configuration?",
+                    "Remove transcription source", MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
             _settings.Sources.Remove(source);
             RefreshSources();
         }
