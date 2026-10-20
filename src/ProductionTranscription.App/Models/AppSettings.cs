@@ -20,6 +20,8 @@ public sealed class AppSettings
     public string ModelName { get; set; } = "";
     public RecognitionEngine RecognitionEngine { get; set; } = RecognitionEngine.Vosk;
     public string GroqModel { get; set; } = "whisper-large-v3-turbo";
+    public bool LightTheme { get; set; }
+    public bool CompactView { get; set; }
     public TranscriptionProfile Profile { get; set; } = TranscriptionProfile.Balanced;
     public List<SourceConfig> Sources { get; set; } = new()
     {

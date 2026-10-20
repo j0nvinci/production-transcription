@@ -4,12 +4,12 @@
  xmlns:svc="clr-namespace:ProductionTranscription.App.Services"
  Title="Production Transcription" Width="1040" Height="760" MinWidth="570" MinHeight="420"
  WindowStartupLocation="CenterScreen" Background="{StaticResource Canvas}">
- <Grid Margin="22">
+ <Grid x:Name="ShellGrid" Margin="22">
   <Grid.RowDefinitions>
    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
    <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
   </Grid.RowDefinitions>
-  <Grid Grid.Row="0" Margin="0,0,0,22">
+  <Grid x:Name="MainHeading" Grid.Row="0" Margin="0,0,0,22">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
     <Border Background="#153F3D" Width="45" Height="45" CornerRadius="13" Margin="0,0,14,0">
@@ -23,10 +23,12 @@
    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
     <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Content="▶  Start listening" Margin="0,0,8,0" Click="StartClicked"/>
     <Button x:Name="StopButton" Content="■  Stop" Margin="0,0,8,0" Click="StopClicked"/>
+    <Button x:Name="CompactButton" Content="Compact" Margin="0,0,8,0" Click="CompactClicked"/>
+    <Button x:Name="ThemeButton" Content="Light" Margin="0,0,8,0" Click="ThemeClicked"/>
     <Button Content="⚙  Settings" Click="SettingsClicked"/>
    </StackPanel>
   </Grid>
-  <Border Grid.Row="1" Background="#141D2A" BorderBrush="#29394A" BorderThickness="1"
+  <Border x:Name="SubtitleBar" Grid.Row="1" Background="#141D2A" BorderBrush="#29394A" BorderThickness="1"
    CornerRadius="12" Padding="13,11" Margin="0,0,0,14">
    <DockPanel LastChildFill="True">
     <Border Width="7" Height="7" CornerRadius="4" Background="#59E0C0" DockPanel.Dock="Left" Margin="0,0,11,0" VerticalAlignment="Center"/>
@@ -37,8 +39,8 @@
    </DockPanel>
   </Border>
   <Grid Grid.Row="2">
-   <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <Border Grid.Column="0" Background="#151B29" BorderBrush="#2B394B" BorderThickness="1" CornerRadius="13" Margin="0,0,10,0">
+   <Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="225"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border x:Name="SidebarPanel" Grid.Column="0" Background="#151B29" BorderBrush="#2B394B" BorderThickness="1" CornerRadius="13" Margin="0,0,10,0">
     <DockPanel>
      <TextBlock Text="CHANNELS" DockPanel.Dock="Top" FontSize="11" Foreground="#91A5BC"
        FontWeight="Bold" Margin="14,15,0,12"/>
@@ -75,10 +77,10 @@
    </Border>
    <Grid Grid.Column="1">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <Border Grid.Row="0" Background="#151D2A" CornerRadius="12" Padding="12,10" Margin="0,0,0,8">
+    <Border x:Name="FeedHeading" Grid.Row="0" Background="#151D2A" CornerRadius="12" Padding="12,10" Margin="0,0,0,8">
      <TextBlock x:Name="ViewTitle" Text="All communications" FontSize="13" FontWeight="SemiBold"/>
     </Border>
-  <Border Grid.Row="1" Background="#101824" BorderBrush="#283749" BorderThickness="1" CornerRadius="16">
+  <Border x:Name="FeedPanel" Grid.Row="1" Background="#101824" BorderBrush="#283749" BorderThickness="1" CornerRadius="16">
    <ListBox x:Name="ChatList" Margin="8" Background="Transparent" BorderThickness="0" Foreground="#F2F6FC"
     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
@@ -105,10 +107,10 @@
          <Grid Margin="0,0,0,8">
           <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <TextBlock Text="{Binding Source}" Foreground="{Binding Accent}" FontWeight="Bold" FontSize="13"/>
-          <TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#899DB5" FontSize="11"/>
+          <TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="{DynamicResource MessageSecondary}" FontSize="11"/>
          </Grid>
          <TextBlock svc:CensoredText.Text="{Binding Words}" svc:CensoredText.Filter="{Binding Filter}"
-          TextWrapping="Wrap" FontSize="16" LineHeight="24" Foreground="#F1F6FD"/>
+          TextWrapping="Wrap" FontSize="16" LineHeight="24" Foreground="{DynamicResource MessageText}"/>
          <TextBlock Text="{Binding State}" Foreground="#59E0C0" FontSize="11" Margin="0,7,0,0" FontStyle="Italic"/>
         </StackPanel>
        </Grid>

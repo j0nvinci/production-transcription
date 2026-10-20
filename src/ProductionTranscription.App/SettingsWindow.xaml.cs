@@ -31,6 +31,8 @@ public partial class SettingsWindow : Window
     public event Action<string>? StatusChanged;
     public event Action<string, string>? SourceColorChanged;
     public event Action? SourcesChanged;
+    public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
+    public bool CompactView { get => _settings.CompactView; set { _settings.CompactView = value; SaveSettings(); } }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
     public bool IsMuted(string source) => _muted.ContainsKey(source);
     public void SetMuted(string source, bool muted)

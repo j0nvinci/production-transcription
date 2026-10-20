@@ -18,6 +18,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ChannelOption> _channels = new();
     private ICollectionView? _view;
     private string? _selectedChannel;
+    private bool _compact;
+    private bool _light;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private static readonly Brush[] Palette = new Brush[]
     {
@@ -36,6 +38,8 @@ public partial class MainWindow : Window
         _settingsWindow = new SettingsWindow();
         _settingsWindow.SourcesChanged += RefreshChannels;
         RefreshChannels();
+        ApplyTheme(_settingsWindow.LightTheme);
+        ApplyCompact(_settingsWindow.CompactView);
         _settingsWindow.SourceColorChanged += (name, hex) =>
         {
             _sourceColors.Remove(name);
@@ -130,6 +134,44 @@ public partial class MainWindow : Window
         _settingsWindow.StopFromMain();
         foreach (var item in _drafts.Values.ToArray()) _messages.Remove(item);
         _drafts.Clear();
+    }
+    private void CompactClicked(object sender, RoutedEventArgs e)
+    {
+        ApplyCompact(!_compact);
+        _settingsWindow.CompactView = _compact;
+    }
+    private void ApplyCompact(bool enabled)
+    {
+        _compact = enabled;
+        SidebarPanel.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        SidebarColumn.Width = new GridLength(enabled ? 0 : 225);
+        SubtitleBar.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        ShellGrid.Margin = new Thickness(enabled ? 9 : 22);
+        MinHeight = enabled ? 170 : 420;
+        Height = enabled ? Math.Min(Height, 290) : Math.Max(Height, 580);
+        CompactButton.Content = enabled ? "Full view" : "Compact";
+    }
+    private void ThemeClicked(object sender, RoutedEventArgs e)
+    {
+        ApplyTheme(!_light);
+        _settingsWindow.LightTheme = _light;
+    }
+    private void ApplyTheme(bool light)
+    {
+        _light = light;
+        Brush Make(string hex) => new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
+        Background = Make(light ? "#EEF3F8" : "#0B1019");
+        SidebarPanel.Background = Make(light ? "#E5ECF5" : "#151B29");
+        SidebarPanel.BorderBrush = Make(light ? "#BCCBDA" : "#2B394B");
+        FeedHeading.Background = Make(light ? "#DCE7F2" : "#151D2A");
+        FeedPanel.Background = Make(light ? "#FFFFFF" : "#101824");
+        FeedPanel.BorderBrush = Make(light ? "#BCCBDA" : "#283749");
+        ThemeButton.Content = light ? "Dark" : "Light";
+        Application.Current.Resources["MessageText"] = Make(light ? "#17283D" : "#F1F6FD");
+        Application.Current.Resources["MessageSecondary"] = Make(light ? "#51667B" : "#899DB5");
+        ChatList.Foreground = Make(light ? "#17283D" : "#F2F6FC");
+        ChannelList.Foreground = Make(light ? "#17283D" : "#F3F6FD");
+        ViewTitle.Foreground = Make(light ? "#17283D" : "#F2F6FC");
     }
     private void SettingsClicked(object sender, RoutedEventArgs e)
     {
