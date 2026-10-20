@@ -214,17 +214,20 @@ public partial class MainWindow : Window
         if (_capturing || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
         try
         {
-            foreach (var box in _inputWarnings.Keys.ToArray())
-        {
-            if (InputError(box.Text) is string problem)
+            foreach (var meter in _meters)
             {
-                box.Focus();
-                ShowInputWarning(box);
-                CaptureStatus.Text = "Correct invalid source mappings before starting capture.";
-                return;
+                if (SourcesList.ItemContainerGenerator.ContainerFromItem(meter) is not FrameworkElement container)
+                    continue;
+                foreach (var box in FindInputBoxes(container))
+                {
+                    ValidateInput(box);
+                    if (meter.ValidationMessage.Length == 0) continue;
+                    box.Focus();
+                    CaptureStatus.Text = "Correct the highlighted source input before starting capture.";
+                    return;
+                }
             }
-        }
-        _capture.Start(_settings.Backend, device.Id, _settings.Sources);
+            _capture.Start(_settings.Backend, device.Id, _settings.Sources);
             _capturing = true;
             StartCaptureButton.IsEnabled = false;
             StopCaptureButton.IsEnabled = true;
