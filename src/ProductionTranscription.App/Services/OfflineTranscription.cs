@@ -38,11 +38,30 @@ public sealed class OfflineTranscription : IDisposable
                     using var recognizer = new VoskRecognizer(_model, 16000f);
                     int pollCount = 0;
                     string lastPartial = "";
+                    bool heardSignal = false;
+                    int quietSamples = 0;
+                    const double gateRms = 0.003; // Approx. -50 dBFS, preliminary gate.
                     while (await queue.Reader.WaitToReadAsync(_stop.Token))
                         while (queue.Reader.TryRead(out var block))
                         {
                             var converted = Resample(block.samples, block.rate, 16000);
                             if (converted.Length == 0) continue;
+                            // Do not feed sustained idle noise to Vosk.
+                            // Allow 1 second of trailing silence for endpoint detection.
+                            double energy = 0;
+                            foreach (float value in converted) energy += (double)value * value;
+                            bool active = Math.Sqrt(energy / converted.Length) >= gateRms;
+                            if (active)
+                            {
+                                heardSignal = true;
+                                quietSamples = 0;
+                            }
+                            else
+                            {
+                                if (!heardSignal) continue;
+                                quietSamples += converted.Length;
+                                if (quietSamples > 16000) continue;
+                            }
                             // Convert to explicit signed 16-bit PCM for Vosk.
                             var pcm = new short[converted.Length];
                             double sumSquares = 0;
