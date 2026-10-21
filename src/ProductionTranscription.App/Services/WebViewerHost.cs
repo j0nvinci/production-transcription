@@ -86,7 +86,7 @@ public sealed class WebViewerHost : IAsyncDisposable
 
     private const string Page = """
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Production Transcription — Remote</title><style>
+<title>Production Transcription — Remote</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%2260%22%20height%3D%2260%22%20rx%3D%2214%22%20fill%3D%22%230b1521%22%20stroke%3D%22%2336e4df%22%20stroke-width%3D%223%22%2F%3E%3Crect%20x%3D%2225%22%20y%3D%2211%22%20width%3D%2214%22%20height%3D%2230%22%20rx%3D%227%22%20fill%3D%22%23eaf3f7%22%2F%3E%3Cpath%20d%3D%22M18%2029a14%2014%200%200%200%2028%200M32%2043v9M23%2052h18%22%20fill%3D%22none%22%20stroke%3D%22%2336e4df%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M10%2026v12m5-18v24m34-24v24m5-18v12%22%20stroke%3D%22%2312bbd8%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E"><style>
 :root{color-scheme:dark;font:15px system-ui;background:#0b1019;color:#f2f5fa}
 body{margin:0}header{background:#141d2a;padding:16px 22px;border-bottom:1px solid #293a50;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 h1{font-size:20px;margin:0}small{color:#9aacc1}main{display:flex;height:calc(100vh - 90px)}
