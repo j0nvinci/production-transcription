@@ -372,6 +372,58 @@ public partial class SettingsWindow : Window
         SaveSettings();
         SourcesChanged?.Invoke();
     }
+    private SourceConfig? _dragSource;
+    private System.Windows.Point _dragStart;
+
+    private void SourceGrabMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_capturing || _starting || sender is not FrameworkElement { Tag: SourceConfig source }) return;
+        _dragSource = source;
+        _dragStart = e.GetPosition(this);
+    }
+
+    private void SourceGrabMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_dragSource is null || e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
+        {
+            _dragSource = null;
+            return;
+        }
+        var current = e.GetPosition(this);
+        if (Math.Abs(current.X - _dragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(current.Y - _dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        var source = _dragSource;
+        _dragSource = null;
+        System.Windows.DragDrop.DoDragDrop((DependencyObject)sender,
+            new System.Windows.DataObject(typeof(SourceConfig), source),
+            System.Windows.DragDropEffects.Move);
+    }
+
+    private void SourcesDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = !_capturing && !_starting && e.Data.GetDataPresent(typeof(SourceConfig))
+            ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void SourcesDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (_capturing || _starting || e.Data.GetData(typeof(SourceConfig)) is not SourceConfig source) return;
+        var targetElement = e.OriginalSource as DependencyObject;
+        while (targetElement is not null && targetElement is not FrameworkElement { DataContext: SourceMeter })
+            targetElement = System.Windows.Media.VisualTreeHelper.GetParent(targetElement);
+        if (targetElement is not FrameworkElement { DataContext: SourceMeter target }) return;
+        int from = _settings.Sources.IndexOf(source);
+        int to = _settings.Sources.IndexOf(target.Source);
+        if (from < 0 || to < 0 || from == to) return;
+        _settings.Sources.RemoveAt(from);
+        _settings.Sources.Insert(to, source);
+        RefreshSourceMeters();
+        SaveSettings();
+        SourcesChanged?.Invoke();
+        e.Handled = true;
+    }
+
     private void RefreshSourceMeters()
     {
         _meters = _settings.Sources.Select(s => new SourceMeter(s)).ToList();
