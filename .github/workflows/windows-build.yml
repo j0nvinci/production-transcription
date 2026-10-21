@@ -36,8 +36,8 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $version = "0.1.\${{ github.run_number }}"
-          & "\${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "installer\ProductionTranscription.iss"
+          $version = "0.1.${{ github.run_number }}"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "installer\ProductionTranscription.iss"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Hash installer
         shell: pwsh
