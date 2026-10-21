@@ -6,7 +6,7 @@ using ProductionTranscription.App.Models;
 namespace ProductionTranscription.App.Services;
 
 /// <summary>A single selected device, with independent source meters; no audio recording/storage.</summary>
-public sealed class AudioCaptureSession : IDisposable
+public sealed class SingleDeviceCaptureSession : IDisposable
 {
     private AsioOut? _asio;
     private WasapiCapture? _wasapi;
