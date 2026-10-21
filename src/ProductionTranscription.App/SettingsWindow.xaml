@@ -86,7 +86,6 @@
     <Button DockPanel.Dock="Right" Content="+ Add source" Padding="10,5" Click="AddSourceClicked"/>
     <TextBlock Text="03   CHANNEL ROUTING &amp; PROCESSING" FontSize="13" Foreground="#59E0C0" FontWeight="Bold"/>
    </DockPanel>
-  </StackPanel>
 
     <Border Grid.Row="1" Background="#141D2A" CornerRadius="12" BorderBrush="#2C3A4D" BorderThickness="1" Padding="8">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
