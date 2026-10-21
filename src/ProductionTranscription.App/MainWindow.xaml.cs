@@ -13,6 +13,7 @@ namespace ProductionTranscription.App;
 public partial class MainWindow : Window
 {
     private readonly SettingsWindow _settingsWindow;
+    private readonly Services.WebViewerHost _webViewer = new();
     private readonly Services.TranscriptCensor _censor = new();
     private readonly ObservableCollection<ChatMessage> _messages = new();
     private readonly ObservableCollection<ChannelOption> _channels = new();
@@ -36,6 +37,8 @@ public partial class MainWindow : Window
         ChatList.ItemsSource = _view;
         ChannelList.ItemsSource = _channels;
         _settingsWindow = new SettingsWindow();
+        _settingsWindow.WebSettingsUpdated += config => { _ = RestartWebViewerAsync(); };
+        Loaded += async (_, _) => await RestartWebViewerAsync();
         _settingsWindow.SourcesChanged += RefreshChannels;
         RefreshChannels();
         ApplyTheme(_settingsWindow.LightTheme);
@@ -88,7 +91,44 @@ public partial class MainWindow : Window
             StopButton.IsEnabled = _settingsWindow.IsCapturing;
         };
         _statusTimer.Start();
-        Closing += (_, _) => { _statusTimer.Stop(); _settingsWindow.Shutdown(); };
+        Closing += (_, _) => { _statusTimer.Stop(); _ = _webViewer.StopAsync(); _settingsWindow.Shutdown(); };
+    }
+    private object WebSnapshot() => new
+    {
+        capturing = _settingsWindow.IsCapturing,
+        channels = _settingsWindow.Channels.Where(c => c.Enabled).Select(c => c.Name).ToArray(),
+        messages = _messages.Select(m => new
+        {
+            source = m.Source, time = m.Time, words = _censor.Censor(m.Words),
+            partial = m.IsPartial, color = _settingsWindow.ColorForSource(m.Source)
+        }).ToArray()
+    };
+    private async Task RestartWebViewerAsync()
+    {
+        try
+        {
+            await _webViewer.StartAsync(_settingsWindow.WebConfiguration,
+                () => Dispatcher.Invoke(WebSnapshot),
+                async start =>
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (start) _settingsWindow.StartFromMain();
+                        else
+                        {
+                            _settingsWindow.StopFromMain();
+                            foreach (var draft in _drafts.Values.ToArray()) _messages.Remove(draft);
+                            _drafts.Clear();
+                        }
+                    });
+                });
+            _settingsWindow.SetWebError(_settingsWindow.WebConfiguration.WebEnabled
+                ? "Web listener active — token required to connect" : "Web viewer disabled");
+        }
+        catch (Exception ex)
+        {
+            _settingsWindow.SetWebError("Web listener failed: " + ex.Message);
+        }
     }
     public sealed record ChannelOption(string Name, string Detail, Brush Accent, string? SourceName, bool Muted)
     {
