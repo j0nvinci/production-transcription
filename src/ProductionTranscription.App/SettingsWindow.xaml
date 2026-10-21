@@ -93,7 +93,7 @@
           ItemsSource="{Binding DataContext.WasapiDevices, RelativeSource={RelativeSource AncestorType=Window}}"
           SelectedValue="{Binding Source.WasapiDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           SelectionChanged="SourceDeviceChanged"
-          IsEnabled="{Binding DataContext.IsWasapiMode, RelativeSource={RelativeSource AncestorType=Window}}"
+          IsEnabled="{Binding IsEnabled, ElementName=StartCaptureButton}"
           Foreground="#17202B" Background="White"/>
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
