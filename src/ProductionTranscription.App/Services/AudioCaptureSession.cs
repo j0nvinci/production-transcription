@@ -51,9 +51,15 @@ public sealed class SingleDeviceCaptureSession : IDisposable
                 _wasapi = new WasapiCapture(endpoint);
                 _channels = _wasapi.WaveFormat.Channels;
                 _sampleRate = _wasapi.WaveFormat.SampleRate;
-                int highest = sources.Where(s => s.Enabled).Max(s => s.InputNumber);
-                if (highest > _channels)
-                    throw new InvalidOperationException($"Requested input {highest}, but the WASAPI endpoint exposes only {_channels} channels.");
+                var invalid = _sources.Where(s => s.InputNumber > _channels).ToArray();
+                if (invalid.Length != 0)
+                {
+                    string names = string.Join(", ", invalid.Select(s => $"'{s.Name}' (input {s.InputNumber})"));
+                    throw new InvalidOperationException(
+                        $"WASAPI endpoint '{endpoint.FriendlyName}' exposes {_channels} channels (inputs 1-{_channels}), " +
+                        $"but these sources use unavailable inputs: {names}. " +
+                        "Select input 1 (left) or 2 (right) for each stereo endpoint.");
+                }
                 ValidateWasapiFormat(_wasapi.WaveFormat);
                 _wasapi.DataAvailable += OnWasapiAudio;
                 _wasapi.RecordingStopped += OnWasapiStopped;
