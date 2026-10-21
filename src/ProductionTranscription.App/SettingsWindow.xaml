@@ -1,22 +1,56 @@
 <Window x:Class="ProductionTranscription.App.SettingsWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="Production Transcription — Settings" Width="940" Height="780"
- MinWidth="620" MinHeight="460" Background="#0B1019" Foreground="#F2F5FA"
+ Title="Production Transcription — Settings" Width="1280" Height="800"
+ MinWidth="1000" MinHeight="560" Background="#0B1019" Foreground="#F2F5FA"
  WindowStartupLocation="CenterScreen">
  <Window.Resources>
   <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#F0F5FC"/></Style>
   <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"><Setter Property="Margin" Value="0,0,8,0"/></Style>
   <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Margin" Value="0,0,10,0"/></Style>
  </Window.Resources>
- <DockPanel Margin="24">
-  <StackPanel DockPanel.Dock="Top">
+
+ <Grid Margin="24">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel Grid.Row="0" Margin="0,0,0,16">
    <TextBlock Text="Workspace settings" FontSize="27" FontWeight="SemiBold"/>
-   <TextBlock Text="Configure input routing, recognition engines and channel processing" Margin="0,6,0,20" Foreground="#92A7BD"/>
-   <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
+   <TextBlock Text="Audio, recognition and independent source routing" Margin="0,6,0,0" Foreground="#92A7BD"/>
+  </StackPanel>
+  <Grid Grid.Row="1">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="420"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+        <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
    <StackPanel>
    <TextBlock Text="01   AUDIO INPUT" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
    <WrapPanel Margin="0,0,0,12">
+    <StackPanel Margin="0,0,15,10">
+     <TextBlock Text="Audio backend" Margin="0,0,0,5"/>
+     <ComboBox x:Name="BackendBox" Width="145" SelectionChanged="SettingsChanged">
+      <ComboBoxItem Content="ASIO"/>
+      <ComboBoxItem Content="WDM / WASAPI"/>
+     </ComboBox>
+    </StackPanel>
+    <StackPanel Margin="0,0,15,10">
+     <TextBlock Text="Default AI profile" Margin="0,0,0,5"/>
+     <ComboBox x:Name="ProfileBox" Width="155" SelectionChanged="SettingsChanged">
+      <ComboBoxItem Content="Speed First"/>
+      <ComboBoxItem Content="Balanced"/>
+      <ComboBoxItem Content="Accuracy First"/>
+     </ComboBox>
+    </StackPanel>
+    <StackPanel Margin="0,0,15,10">
+     <TextBlock Text="Audio input device" Margin="0,0,0,5"/>
+     <DockPanel>
+      <Button DockPanel.Dock="Right" Content="Refresh" Padding="8,2" Margin="5,0,0,0" Click="RefreshDevicesClicked"/>
+      <ComboBox x:Name="DeviceBox" Width="270" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="DeviceSelectionChanged" Foreground="#17202B" Background="White"/>
+     </DockPanel>
+    </StackPanel>
+   </WrapPanel>
+   </StackPanel></Border>
+
+     
+        <WrapPanel Margin="0,0,0,12">
     <StackPanel Margin="0,0,15,10">
      <TextBlock Text="Audio backend" Margin="0,0,0,5"/>
      <ComboBox x:Name="BackendBox" Width="145" SelectionChanged="SettingsChanged">
@@ -67,15 +101,21 @@
     <Button x:Name="StartCaptureButton" Style="{StaticResource PrimaryButton}" Content="▶  Start capture" Click="StartCaptureClicked" Padding="12,6" Margin="0,0,8,0"/>
     <Button x:Name="StopCaptureButton" Content="Stop" Click="StopCaptureClicked" Padding="12,6" Margin="0,0,8,0" IsEnabled="False"/>
    </WrapPanel>
-   <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
-   <DockPanel Margin="0,0,0,12">
+
+        <TextBlock x:Name="DeviceStatus" Text="Scanning devices..." Foreground="#A0B0C0" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+    </StackPanel>
+   </ScrollViewer>
+   <Grid Grid.Column="2">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+       <DockPanel Margin="0,0,0,12">
     <Button DockPanel.Dock="Right" Content="+ Add source" Padding="10,5" Click="AddSourceClicked"/>
     <TextBlock Text="03   CHANNEL ROUTING &amp; PROCESSING" FontSize="13" Foreground="#59E0C0" FontWeight="Bold"/>
    </DockPanel>
   </StackPanel>
-  <TextBlock DockPanel.Dock="Bottom" Foreground="#A0B0C0" Margin="0,10,0,0"
-    x:Name="CaptureStatus" Text="Ready • channel meters activate when capture starts"/>
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
+
+    <Border Grid.Row="1" Background="#141D2A" CornerRadius="12" BorderBrush="#2C3A4D" BorderThickness="1" Padding="8">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
    <ItemsControl x:Name="SourcesList">
     <ItemsControl.ItemTemplate>
      <DataTemplate>
@@ -89,7 +129,7 @@
         <TextBox Width="55" Text="{Binding Source.InputNumber, Mode=OneWay}"
           TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
         <TextBlock Text="WASAPI device" VerticalAlignment="Center" Margin="10,0,6,0"/>
-        <ComboBox Width="240" DisplayMemberPath="Name" SelectedValuePath="Id"
+        <ComboBox Width="230" DisplayMemberPath="Name" SelectedValuePath="Id"
           ItemsSource="{Binding DataContext.WasapiDevices, RelativeSource={RelativeSource AncestorType=Window}}"
           SelectedValue="{Binding Source.WasapiDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           SelectionChanged="SourceDeviceChanged"
@@ -98,7 +138,7 @@
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>
-        <WrapPanel Margin="0,10,0,3">
+        <Expander Header="Color, gain and gate" Margin="0,10,0,3" Foreground="#D9E7F5" IsExpanded="False"><StackPanel><WrapPanel Margin="0,10,0,3">
          <TextBlock Text="Speaker color" Width="100" VerticalAlignment="Center"/>
          <Border Width="27" Height="27" CornerRadius="7" Background="{Binding ColorPreview}"
           BorderThickness="1" BorderBrush="#64748B" Margin="0,0,9,0"/>
@@ -120,6 +160,7 @@
          <Slider Minimum="-80" Maximum="-20" TickFrequency="1" IsSnapToTickEnabled="True"
            Value="{Binding Source.GateDbfs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ValueChanged="GainChanged"/>
         </DockPanel>
+       </StackPanel></Expander>
        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Level}" Height="7" Margin="0,13,0,0" Foreground="#59E0C0" Background="#0F1720"/>
        </StackPanel>
       </Border>
@@ -127,5 +168,12 @@
     </ItemsControl.ItemTemplate>
    </ItemsControl>
   </ScrollViewer>
- </DockPanel>
+
+    </Border>
+   </Grid>
+  </Grid>
+  <Border Grid.Row="2" Margin="0,12,0,0" Padding="0,4,0,0">  <TextBlock  Foreground="#A0B0C0" Margin="0,10,0,0"
+    x:Name="CaptureStatus" Text="Ready • channel meters activate when capture starts"/>
+</Border>
+ </Grid>
 </Window>
