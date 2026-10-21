@@ -34,6 +34,8 @@ public partial class SettingsWindow : Window
     public event Action<string>? StatusChanged;
     public event Action<string, string>? SourceColorChanged;
     public event Action? SourcesChanged;
+    public event Action<AppSettings>? WebSettingsUpdated;
+    public AppSettings WebConfiguration => _settings;
     public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
     public bool CompactView { get => _settings.CompactView; set { _settings.CompactView = value; SaveSettings(); } }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
@@ -57,6 +59,7 @@ public partial class SettingsWindow : Window
         _loadingKey = false;
         DataContext = this;
         RefreshSourceMeters();
+        InitializeWebSettings();
         _initialized = true;
         RefreshDevices();
         RefreshModels();
@@ -77,6 +80,58 @@ public partial class SettingsWindow : Window
             else { StopCapture(); SaveSettings(); }
         };
     }
+    private sealed record WebInterface(string Id, string Name);
+    private void InitializeWebSettings()
+    {
+        if (string.IsNullOrWhiteSpace(_settings.WebAccessToken))
+        {
+            _settings.WebAccessToken = WebViewerHost.NewToken();
+            SettingsStore.Save(_settings);
+        }
+        WebInterfaceBox.ItemsSource = WebViewerHost.BindAddresses()
+            .Select(ip => new WebInterface(ip, ip == "0.0.0.0" ? "All network interfaces (0.0.0.0)" :
+                ip == "127.0.0.1" ? "Localhost only (127.0.0.1)" : ip)).ToList();
+        WebInterfaceBox.SelectedValue = _settings.WebBindAddress;
+        if (WebInterfaceBox.SelectedItem is null) WebInterfaceBox.SelectedValue = "127.0.0.1";
+        WebPortBox.Text = _settings.WebPort.ToString();
+        WebEnabledBox.IsChecked = _settings.WebEnabled;
+        WebAccessBox.SelectedIndex = _settings.WebReadWrite ? 1 : 0;
+        WebTokenBox.Text = _settings.WebAccessToken;
+        UpdateWebStatus();
+    }
+    private void UpdateWebStatus()
+    {
+        WebStatus.Text = _settings.WebEnabled
+            ? $"Listener: http://{(_settings.WebBindAddress == "0.0.0.0" ? "<computer-ip>" : _settings.WebBindAddress)}:{_settings.WebPort}/ — access token required"
+            : "Web viewer disabled";
+    }
+    private void WebSettingsChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        if (!int.TryParse(WebPortBox.Text, out int port) || port is < 1 or > 65535)
+        {
+            WebStatus.Text = "Port must be between 1 and 65535.";
+            return;
+        }
+        _settings.WebEnabled = WebEnabledBox.IsChecked == true;
+        _settings.WebPort = port;
+        _settings.WebBindAddress = WebInterfaceBox.SelectedValue as string ?? "127.0.0.1";
+        _settings.WebReadWrite = WebAccessBox.SelectedIndex == 1;
+        SaveSettings();
+        UpdateWebStatus();
+        WebSettingsUpdated?.Invoke(_settings);
+    }
+    private void RegenerateWebToken(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Regenerate web token? All connected viewers will lose access.",
+            "Regenerate token", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        _settings.WebAccessToken = WebViewerHost.NewToken();
+        WebTokenBox.Text = _settings.WebAccessToken;
+        SaveSettings();
+        WebSettingsUpdated?.Invoke(_settings);
+    }
+    public void SetWebError(string message) => WebStatus.Text = message;
+
     private sealed record InstalledModel(string Id, string Name);
     private void GroqKeyChanged(object sender, RoutedEventArgs e)
     {
