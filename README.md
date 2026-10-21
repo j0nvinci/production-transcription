@@ -2,7 +2,7 @@
 
 **A Windows-native, multi-source, live-production communications transcription workstation.** Capture separate intercom, FOH, broadcast, stage, camera, and other audio channels; transcribe them into one chronological feed; and follow the conversation from the workstation or an optional browser viewer.
 
-> **Project status:** Active development / field testing. The application implements live capture and transcription, but the current feature branch is not a certified production release. Test device compatibility, latency, model performance, web access, and installer behavior before relying on it during a show.
+> **Project status:** Active development / field testing. The application implements live capture and transcription, but the published beta builds are not certified production releases. Test device compatibility, latency, model performance, web access, and installer behavior before relying on it during a show.
 
 ![Illustrative rendering of the desktop transcript interface](docs/images/interface-overview.svg)
 
@@ -73,16 +73,18 @@ These are **illustrative names and assignments**; choose the endpoints actually 
 
 ### Option A: Installer (recommended for testing)
 
-1. Open [GitHub Actions → Windows build](../../actions/workflows/windows-build.yml) for the desired branch and select a **successful** run.
-2. Download the `production-transcription-release-assets` artifact and extract it (or use the installer attached to a tagged GitHub Release).
-3. Run `ProductionTranscription-Setup.exe`. The installer installs the app and offers a desktop shortcut. Administrative approval may be required.
-4. Launch **Production Transcription** and open **Settings**.
+1. Open **[GitHub Releases](https://github.com/j0nvinci/production-transcription/releases)** or the **[latest release](https://github.com/j0nvinci/production-transcription/releases/latest)** (note: GitHub's `latest` shortcut may exclude prereleases; use the full Releases page for beta builds).
+2. Choose the newest appropriate version and download `ProductionTranscription-Setup.exe` from its **Assets** section.
+3. Run the installer. It installs the app and offers a desktop shortcut. Administrative approval may be required.
+4. Launch **Production Transcription**, open **Settings**, and install a local recognition model if using Whisper or Vosk (instructions below).
 
-> GitHub Actions artifacts may require signing in to GitHub. A committed workflow does not guarantee that a particular run has succeeded; inspect the run and its logs.
+> If no release assets appear yet, the tagged release workflow may still be running or may have failed. Check [GitHub Actions](https://github.com/j0nvinci/production-transcription/actions). Beta builds are for testing and the installer is not yet code-signed.
 
 ### Option B: Portable build
 
-Download and extract the `production-transcription-windows-x64` artifact from a successful Windows build run, then launch `ProductionTranscription.exe`. The workflow publishes a self-contained Windows x64 build; the application is intended for Windows, not macOS or Linux.
+On the same [Releases page](https://github.com/j0nvinci/production-transcription/releases), download `ProductionTranscription-Windows-x64-Portable.zip` from the desired release's **Assets**, extract it to a writable folder, and run `ProductionTranscription.exe`. The portable version is self-contained for Windows x64; it is not a macOS or Linux application.
+
+If a release is unavailable, developers can download build artifacts from a successful [Windows build workflow](https://github.com/j0nvinci/production-transcription/actions/workflows/windows-build.yml) run (GitHub sign-in may be required).
 
 ### Option C: Build from source
 
@@ -91,7 +93,7 @@ Install the **.NET 10 SDK** on Windows. The build generates the ICO/PNG branding
 ```powershell
 git clone https://github.com/j0nvinci/production-transcription.git
 cd production-transcription
-git switch feature/web-viewer
+git switch main
 
 py -m pip install Pillow
 py tools/generate_icon.py
@@ -133,7 +135,7 @@ The application does **not** create Dante routes or configure your audio console
 ### Step 4 — Set up speech recognition
 
 1. Open **Settings → Recognition engine**.
-2. For local Whisper, obtain a compatible Whisper **GGML model file** (for example, a base English model) and place it in:
+2. For local Whisper, download a compatible **GGML `.bin` model** from the links below and place it in:
    ```text
    <application folder>\models\
    ```
@@ -141,6 +143,21 @@ The application does **not** create Dante routes or configure your audio console
 3. Click **Refresh models**, choose the recognition engine, and select the detected model.
 4. Select the AI profile; **Balanced** is the default.
 5. For optional Groq cloud recognition, choose Groq, select the provider model, and enter the API key in the Settings password field. Cloud recognition is not offline.
+
+#### Download Whisper models (local/offline recognition)
+
+Production Transcription uses **Whisper GGML models**, not the original OpenAI `.pt` checkpoints. Download one of these `.bin` files:
+
+| Model | Download | Approximate file size | Suggested use |
+| --- | --- | --- | --- |
+| Tiny English | [`ggml-tiny.en.bin`](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin) | 75 MB | Fastest CPU tests; lower accuracy |
+| Base English | [`ggml-base.en.bin`](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin) | 148 MB | **Recommended starting point** for English production comms |
+| Small English | [`ggml-small.en.bin`](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin) | 488 MB | Potentially better recognition, higher CPU load |
+| Base multilingual | [`ggml-base.bin`](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin) | 148 MB | Multilingual model; current app recognition is configured for English |
+
+Browse [all Whisper GGML models](https://huggingface.co/ggerganov/whisper.cpp/tree/main) or see the [whisper.cpp model documentation](https://github.com/ggml-org/whisper.cpp/tree/master/models). The English-only `.en` models are the sensible choice for the app's current English recognition configuration. Larger models are not necessarily practical for multiple simultaneous CPU-only channels.
+
+**Install:** Save the downloaded `.bin` file unchanged inside `models` next to `ProductionTranscription.exe`, then in **Settings → Recognition engine**, click **Refresh models** and select it. Models are separate downloads and are **not bundled with the installer**.
 
 For installed builds under `Program Files`, the application directory may require administrator rights to modify. Place model files there during setup or use a writable portable installation.
 
@@ -201,7 +218,7 @@ For details, see [Web viewer operations and limitations](docs/web-viewer.md).
 The [Windows build and release workflow](.github/workflows/windows-build.yml) runs on commits and pull requests, but **only publishes a public GitHub Release for a version tag**. A release tag must point to a commit already on `main`. The workflow builds on Windows, generates branding, creates a self-contained portable ZIP, compiles the Inno Setup installer, generates SHA-256 checksums, and attaches all three assets to the release.
 
 1. Test the latest build on Windows and review the repository **including Git history** for credentials or internal information before making it public.
-2. Merge the tested feature branch into `main`. Wait for the `main` CI run to pass.
+2. Ensure the tested changes are on `main` and wait for the `main` CI run to pass.
 3. Create and push an annotated version tag on that tested `main` commit:
 
    ```powershell
