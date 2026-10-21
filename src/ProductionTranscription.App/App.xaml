@@ -108,12 +108,21 @@
    <Setter Property="BorderBrush" Value="#4A6077"/>
    <Setter Property="Padding" Value="9,7"/>
   </Style>
+  <!-- Native WPF ComboBox chrome remains light; use dark text until its entire template is replaced. -->
   <Style TargetType="ComboBox">
    <Setter Property="Background" Value="#EAF0F7"/>
-   <Setter Property="Foreground" Value="#F1F6FD"/>
+   <Setter Property="Foreground" Value="#152335"/>
    <Setter Property="BorderBrush" Value="#4A6077"/>
    <Setter Property="Padding" Value="6,5"/>
    <Setter Property="FontSize" Value="12"/>
+   <Setter Property="ItemContainerStyle">
+    <Setter.Value>
+     <Style TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="#152335"/>
+      <Setter Property="Background" Value="#EAF0F7"/>
+     </Style>
+    </Setter.Value>
+   </Setter>
   </Style>
   <Style TargetType="CheckBox">
    <Setter Property="Foreground" Value="#DAE6F3"/>
