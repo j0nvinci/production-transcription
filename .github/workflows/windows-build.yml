@@ -1,16 +1,19 @@
 name: Windows build
-
 on:
   push:
-    branches: [main]
+    branches: [main, feature/web-viewer]
   pull_request:
   workflow_dispatch:
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
@@ -20,8 +23,32 @@ jobs:
         run: dotnet build src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --no-restore
       - name: Publish executable
         run: dotnet publish src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/windows-x64
-      - name: Upload executable
+      - name: Upload portable build
         uses: actions/upload-artifact@v5
         with:
           name: production-transcription-windows-x64
           path: artifacts/windows-x64/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "0.1.\${{ github.run_number }}"
+          & "\${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "installer\ProductionTranscription.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Hash installer
+        shell: pwsh
+        run: |
+          Get-FileHash artifacts/installer/ProductionTranscription-Setup.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  ProductionTranscription-Setup.exe" } |
+            Set-Content artifacts/installer/SHA256SUMS.txt
+      - name: Upload installer
+        uses: actions/upload-artifact@v5
+        with:
+          name: production-transcription-installer
+          path: artifacts/installer/
+          if-no-files-found: error
+          retention-days: 30
