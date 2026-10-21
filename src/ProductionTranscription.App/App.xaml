@@ -11,6 +11,52 @@
   <SolidColorBrush x:Key="Edge" Color="#2B394B"/>
   <SolidColorBrush x:Key="Muted" Color="#94A5BC"/>
   <SolidColorBrush x:Key="Accent" Color="#59E0C0"/>
+  <!-- Shared dark control language for every WPF window. -->
+  <Style TargetType="{x:Type ScrollBar}">
+   <Setter Property="Width" Value="10"/>
+   <Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="{x:Type ScrollBar}">
+      <Grid x:Name="ScrollRoot" Background="Transparent" Margin="2,3">
+       <Track x:Name="PART_Track" IsDirectionReversed="True">
+        <Track.DecreaseRepeatButton>
+         <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+        </Track.DecreaseRepeatButton>
+        <Track.Thumb>
+         <Thumb>
+          <Thumb.Template>
+           <ControlTemplate TargetType="{x:Type Thumb}">
+            <Border x:Name="Grip" Background="#51647C" CornerRadius="4" MinHeight="22" MinWidth="22"/>
+            <ControlTemplate.Triggers>
+             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Background" Value="#59E0C0"/></Trigger>
+             <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Background" Value="#45C7AD"/></Trigger>
+            </ControlTemplate.Triggers>
+           </ControlTemplate>
+          </Thumb.Template>
+         </Thumb>
+        </Track.Thumb>
+        <Track.IncreaseRepeatButton>
+         <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+        </Track.IncreaseRepeatButton>
+       </Track>
+      </Grid>
+      <ControlTemplate.Triggers>
+       <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="Width" Value="Auto"/>
+        <Setter TargetName="ScrollRoot" Property="Margin" Value="3,2"/>
+        <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+       </Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
+  </Style>
+  <Style TargetType="{x:Type ScrollViewer}">
+   <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+   <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+  </Style>
   <Style TargetType="Window">
    <Setter Property="FontFamily" Value="Segoe UI"/>
    <Setter Property="Background" Value="{StaticResource Canvas}"/>
@@ -48,9 +94,9 @@
    <Setter Property="BorderThickness" Value="0"/>
   </Style>
   <Style TargetType="TextBox">
-   <Setter Property="Background" Value="#EAF0F7"/>
-   <Setter Property="Foreground" Value="#122233"/>
-   <Setter Property="BorderBrush" Value="#4A6077"/>
+   <Setter Property="Background" Value="#202F42"/>
+   <Setter Property="Foreground" Value="#F1F6FD"/>
+   <Setter Property="BorderBrush" Value="#40536A"/>
    <Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Padding" Value="9,7"/>
    <Setter Property="FontSize" Value="12"/>
@@ -63,12 +109,16 @@
   </Style>
   <Style TargetType="ComboBox">
    <Setter Property="Background" Value="#EAF0F7"/>
-   <Setter Property="Foreground" Value="#152335"/>
+   <Setter Property="Foreground" Value="#F1F6FD"/>
    <Setter Property="BorderBrush" Value="#4A6077"/>
    <Setter Property="Padding" Value="6,5"/>
    <Setter Property="FontSize" Value="12"/>
   </Style>
-  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#DAE6F3"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style TargetType="CheckBox">
+   <Setter Property="Foreground" Value="#DAE6F3"/>
+   <Setter Property="VerticalAlignment" Value="Center"/>
+   <Setter Property="Cursor" Value="Hand"/>
+  </Style>
   <Style TargetType="Slider"><Setter Property="Foreground" Value="{StaticResource Accent}"/></Style>
   <Style TargetType="ProgressBar"><Setter Property="Foreground" Value="{StaticResource Accent}"/><Setter Property="Background" Value="#0D1420"/></Style>
  </Application.Resources>
