@@ -1,26 +1,5 @@
-<Window x:Class="ProductionTranscription.App.SettingsWindow"
- xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="Production Transcription — Settings" Width="1280" Height="800"
- MinWidth="1000" MinHeight="560" Background="#0B1019" Foreground="#F2F5FA"
- WindowStartupLocation="CenterScreen">
- <Window.Resources>
-  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#F0F5FC"/></Style>
-  <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"><Setter Property="Margin" Value="0,0,8,0"/></Style>
-  <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Margin" Value="0,0,10,0"/></Style>
- </Window.Resources>
-
- <Grid Margin="24">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <StackPanel Grid.Row="0" Margin="0,0,0,16">
-   <TextBlock Text="Workspace settings" FontSize="27" FontWeight="SemiBold"/>
-   <TextBlock Text="Audio, recognition and independent source routing" Margin="0,6,0,0" Foreground="#92A7BD"/>
-  </StackPanel>
-  <Grid Grid.Row="1">
-   <Grid.ColumnDefinitions><ColumnDefinition Width="420"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel>
-        <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
+<Window x:Class="Producti
+   <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
    <StackPanel>
    <TextBlock Text="01   AUDIO INPUT" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
    <WrapPanel Margin="0,0,0,12">
