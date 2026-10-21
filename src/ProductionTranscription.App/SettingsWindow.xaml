@@ -88,6 +88,13 @@
         <TextBlock Text="Input #" VerticalAlignment="Center" Margin="8,0,8,0"/>
         <TextBox Width="55" Text="{Binding Source.InputNumber, Mode=OneWay}"
           TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
+        <TextBlock Text="WASAPI device" VerticalAlignment="Center" Margin="10,0,6,0"/>
+        <ComboBox Width="240" DisplayMemberPath="Name" SelectedValuePath="Id"
+          ItemsSource="{Binding DataContext.WasapiDevices, RelativeSource={RelativeSource AncestorType=Window}}"
+          SelectedValue="{Binding Source.WasapiDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          SelectionChanged="SourceDeviceChanged"
+          IsEnabled="{Binding DataContext.IsWasapiMode, RelativeSource={RelativeSource AncestorType=Window}}"
+          Foreground="#17202B" Background="White"/>
         <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
           Padding="8,4" Click="RemoveSourceClicked"/>
         </WrapPanel>
