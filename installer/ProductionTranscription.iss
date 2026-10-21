@@ -16,6 +16,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 WizardStyle=modern
+SetupIconFile=..\\src\\ProductionTranscription.App\\Assets\\ProductionTranscription.ico
 UninstallDisplayIcon={app}\ProductionTranscription.exe
 CloseApplications=yes
 DisableProgramGroupPage=yes
