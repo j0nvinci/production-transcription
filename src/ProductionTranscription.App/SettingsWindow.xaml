@@ -127,29 +127,39 @@
      <DataTemplate>
       <Border Margin="0,0,0,7" Padding="12" Background="#182435" BorderBrush="#2D3D51" BorderThickness="1" CornerRadius="12">
        <StackPanel>
-        <WrapPanel>
-         <Border Background="#26384B" CornerRadius="5" Padding="8,3" Margin="0,0,10,0"
-                 Cursor="SizeAll" Tag="{Binding Source}"
+        <Grid>
+         <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="43"/>
+          <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Border Grid.Column="0" Width="32" Height="38" HorizontalAlignment="Left" VerticalAlignment="Center"
+                 Background="#26384B" CornerRadius="5" Cursor="SizeAll" Tag="{Binding Source}"
                  PreviewMouseLeftButtonDown="SourceGrabMouseDown" MouseMove="SourceGrabMouseMove"
                  ToolTip="Drag to reorder source">
-          <TextBlock Text="☰" FontSize="19" Foreground="#59E0C0" IsHitTestVisible="False"/>
+          <TextBlock Text="☰" FontSize="19" Foreground="#59E0C0"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
          </Border>
-        <CheckBox Content="On" IsChecked="{Binding Source.Enabled, Mode=TwoWay}"
-          Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
-        <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
-        <TextBlock Text="Input #" VerticalAlignment="Center" Margin="8,0,8,0"/>
-        <TextBox Width="55" Text="{Binding Source.InputNumber, Mode=OneWay}"
-          TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
-        <TextBlock Text="WASAPI device" VerticalAlignment="Center" Margin="10,0,6,0"/>
-        <ComboBox Width="230" DisplayMemberPath="Name" SelectedValuePath="Id"
-          ItemsSource="{Binding DataContext.WasapiDevices, RelativeSource={RelativeSource AncestorType=Window}}"
-          SelectedValue="{Binding Source.WasapiDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-          SelectionChanged="SourceDeviceChanged"
-          IsEnabled="{Binding IsEnabled, ElementName=StartCaptureButton}"
-          />
-        <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
-          Padding="8,4" Click="RemoveSourceClicked"/>
-        </WrapPanel>
+         <StackPanel Grid.Column="1">
+          <WrapPanel>
+           <CheckBox Content="On" IsChecked="{Binding Source.Enabled, Mode=TwoWay}"
+                     Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
+           <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
+           <TextBlock Text="Input #" Foreground="#F1F6FD" VerticalAlignment="Center" Margin="8,0,8,0"/>
+           <TextBox Width="55" Foreground="#F1F6FD" Text="{Binding Source.InputNumber, Mode=OneWay}"
+                    TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
+          </WrapPanel>
+          <WrapPanel Margin="0,14,0,0">
+           <TextBlock Text="WASAPI device" VerticalAlignment="Center" Margin="0,0,10,0"/>
+           <ComboBox Width="290" DisplayMemberPath="Name" SelectedValuePath="Id"
+                     ItemsSource="{Binding DataContext.WasapiDevices, RelativeSource={RelativeSource AncestorType=Window}}"
+                     SelectedValue="{Binding Source.WasapiDeviceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     SelectionChanged="SourceDeviceChanged"
+                     IsEnabled="{Binding IsEnabled, ElementName=StartCaptureButton}"/>
+           <Button Content="Remove source" Tag="{Binding Source}" Margin="15,0,0,0"
+                   Padding="8,4" Click="RemoveSourceClicked"/>
+          </WrapPanel>
+         </StackPanel>
+        </Grid>
         <Expander Header="Color, gain and gate" Margin="0,10,0,3" Foreground="#D9E7F5" IsExpanded="False"><StackPanel><WrapPanel Margin="0,10,0,3">
          <TextBlock Text="Speaker color" Width="100" VerticalAlignment="Center"/>
          <Border Width="27" Height="27" CornerRadius="7" Background="{Binding ColorPreview}"
