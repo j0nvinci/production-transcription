@@ -22,6 +22,11 @@ public sealed class AppSettings
     public RecognitionEngine RecognitionEngine { get; set; } = RecognitionEngine.Vosk;
     public string GroqModel { get; set; } = "whisper-large-v3-turbo";
     public bool LightTheme { get; set; }
+    public bool WebEnabled { get; set; }
+    public int WebPort { get; set; } = 8765;
+    public string WebBindAddress { get; set; } = "127.0.0.1";
+    public bool WebReadWrite { get; set; }
+    public string WebAccessToken { get; set; } = "";
     public bool CompactView { get; set; }
     public TranscriptionProfile Profile { get; set; } = TranscriptionProfile.Balanced;
     public List<SourceConfig> Sources { get; set; } = new()
