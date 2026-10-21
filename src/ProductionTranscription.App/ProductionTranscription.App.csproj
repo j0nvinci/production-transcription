@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ProductionTranscription</AssemblyName>
   </PropertyGroup>
+  <ItemGroup><Resource Include="Assets\\ProductionTranscription.ico" /></ItemGroup>
   <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
   <ItemGroup><PackageReference Include="NAudio" Version="2.2.1" /><PackageReference Include="Vosk" Version="0.3.38" /><PackageReference Include="Whisper.net" Version="1.9.1" /><PackageReference Include="Whisper.net.Runtime" Version="1.9.1" /></ItemGroup>
 </Project>
