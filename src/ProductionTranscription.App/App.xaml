@@ -47,6 +47,7 @@
         <Setter Property="Width" Value="Auto"/>
         <Setter TargetName="ScrollRoot" Property="Margin" Value="3,2"/>
         <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+        <Setter TargetName="PART_Track" Property="Orientation" Value="Horizontal"/>
        </Trigger>
       </ControlTemplate.Triggers>
      </ControlTemplate>
