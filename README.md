@@ -74,7 +74,7 @@ These are **illustrative names and assignments**; choose the endpoints actually 
 ### Option A: Installer (recommended for testing)
 
 1. Open [GitHub Actions → Windows build](../../actions/workflows/windows-build.yml) for the desired branch and select a **successful** run.
-2. Download the `production-transcription-installer` artifact and extract it.
+2. Download the `production-transcription-release-assets` artifact and extract it (or use the installer attached to a tagged GitHub Release).
 3. Run `ProductionTranscription-Setup.exe`. The installer installs the app and offers a desktop shortcut. Administrative approval may be required.
 4. Launch **Production Transcription** and open **Settings**.
 
@@ -196,6 +196,28 @@ For details, see [Web viewer operations and limitations](docs/web-viewer.md).
 | Browser cannot connect | Verify **Enable web UI**, listener status, correct PC IP and port, firewall allowance, VPN/LAN connectivity, and token. |
 | Recognition lags | Try fewer simultaneous channels, a smaller local model, or the Speed First profile; benchmark under realistic show conditions. |
 
+## Publishing a GitHub Release (maintainers)
+
+The [Windows build and release workflow](.github/workflows/windows-build.yml) runs on commits and pull requests, but **only publishes a public GitHub Release for a version tag**. A release tag must point to a commit already on `main`. The workflow builds on Windows, generates branding, creates a self-contained portable ZIP, compiles the Inno Setup installer, generates SHA-256 checksums, and attaches all three assets to the release.
+
+1. Test the latest build on Windows and review the repository **including Git history** for credentials or internal information before making it public.
+2. Merge the tested feature branch into `main`. Wait for the `main` CI run to pass.
+3. Create and push an annotated version tag on that tested `main` commit:
+
+   ```powershell
+   git switch main
+   git pull --ff-only
+   git tag -a v0.1.0-beta.1 -m "Production Transcription 0.1.0 beta 1"
+   git push origin v0.1.0-beta.1
+   ```
+
+4. Open [Actions](../../actions) and verify the tagged build and release jobs succeed.
+5. Open [Releases](../../releases) and confirm the installer, portable ZIP, and `SHA256SUMS.txt` are attached.
+
+Tags follow `vMAJOR.MINOR.PATCH` for stable versions, or `vMAJOR.MINOR.PATCH-beta.N`, `-alpha.N`, or `-rc.N` for prereleases. Prerelease tags are automatically marked **Pre-release** on GitHub. **No release is created for ordinary branch pushes or manual workflow runs.** Release creation requires the repository's Actions settings to allow workflows to create releases using `GITHUB_TOKEN` (`contents: write` in the release job). If a tag build fails, no release is published; inspect the Actions logs before retrying.
+
+**Distribution note:** The installer is not code-signed. Windows SmartScreen may warn users until a trusted signing certificate and reputation are established. Do not bypass warnings blindly; verify the published checksum and source before installing.
+
 ## Development and build outputs
 
 - Application: `src/ProductionTranscription.App/`
@@ -207,7 +229,7 @@ For details, see [Web viewer operations and limitations](docs/web-viewer.md).
 - Icon generator: `tools/generate_icon.py`
 - CI workflow: `.github/workflows/windows-build.yml`
 
-The CI workflow builds the app on Windows, publishes a self-contained x64 artifact, then uses Inno Setup to produce `ProductionTranscription-Setup.exe` and a SHA-256 checksum file. Inspect [GitHub Actions](../../actions) for the status of a specific revision.
+The CI workflow builds the app on Windows, publishes a self-contained x64 artifact, then uses Inno Setup to produce `ProductionTranscription-Setup.exe`, a portable ZIP, and a SHA-256 checksum file. Tagged commits on `main` also publish these files to GitHub Releases. Inspect [GitHub Actions](../../actions) for the status of a specific revision.
 
 ## Known limitations / roadmap
 
