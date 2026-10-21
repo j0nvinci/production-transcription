@@ -21,6 +21,8 @@ public partial class SettingsWindow : Window
     private bool _loadingKey;
     private int? _detectedChannels;
     private readonly AudioCaptureSession _capture = new();
+    public ObservableCollection<AudioDeviceInfo> WasapiDevices { get; } = new();
+    public bool IsWasapiMode => _settings.Backend == AudioBackend.Wasapi;
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
     private bool _capturing;
@@ -65,7 +67,7 @@ public partial class SettingsWindow : Window
             StatusChanged?.Invoke(CaptureStatus.Text);
             foreach (var meter in _meters)
                 meter.Level = _capturing && meter.Source.Enabled ?
-                    Math.Max(Math.Min(100, _capture.TakePeak(meter.Source.InputNumber) * Math.Pow(10, meter.Source.GainDb / 20.0) * 100), meter.Level * .65) : 0;
+                    Math.Max(Math.Min(100, _capture.TakePeak(meter.Source) * Math.Pow(10, meter.Source.GainDb / 20.0) * 100), meter.Level * .65) : 0;
         };
         Closing += (_, e) =>
         {
@@ -163,6 +165,9 @@ public partial class SettingsWindow : Window
         try
         {
             var devices = AudioDeviceDiscovery.GetDevices(_settings.Backend);
+            WasapiDevices.Clear();
+            if (IsWasapiMode)
+                foreach (var endpoint in devices) WasapiDevices.Add(endpoint);
             DeviceBox.ItemsSource = devices;
             DeviceBox.SelectedValue = _settings.DeviceName;
             // Never silently switch an established mapping to another device.
@@ -187,6 +192,12 @@ public partial class SettingsWindow : Window
         finally { _refreshingDevices = false; }
         InspectSelectedDevice();
         SaveSettings();
+    }
+    private void SourceDeviceChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized || _refreshingDevices || _capturing || _starting) return;
+        SaveSettings();
+        RefreshInputWarnings();
     }
     private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -215,11 +226,21 @@ public partial class SettingsWindow : Window
         RefreshInputWarnings();
     }
 
-    private string? InputError(string inputText)
+    private string? InputError(string inputText, SourceConfig? source = null)
     {
         if (!int.TryParse(inputText, out int n) || n < 1)
             return "Enter a positive input number, starting at 1.";
-        if (_detectedChannels is int total && n > total)
+        int? count = _detectedChannels;
+        if (IsWasapiMode && source is not null)
+        {
+            string id = string.IsNullOrWhiteSpace(source.WasapiDeviceId)
+                ? _settings.DeviceName : source.WasapiDeviceId;
+            if (!WasapiDevices.Any(d => d.Id == id))
+                return "The selected WASAPI recording device is unavailable.";
+            try { count = AudioDeviceDiscovery.GetInputChannelCount(AudioBackend.Wasapi, id); }
+            catch (Exception ex) { return "Cannot inspect recording device: " + ex.Message; }
+        }
+        if (count is int total && n > total)
             return $"This device has {total} inputs. Choose a number from 1 to {total}.";
         return null;
     }
@@ -227,7 +248,7 @@ public partial class SettingsWindow : Window
     private void ValidateInput(TextBox box)
     {
         if (!_initialized || box.DataContext is not SourceMeter meter) return;
-        meter.ValidationMessage = InputError(box.Text) ?? "";
+        meter.ValidationMessage = InputError(box.Text, meter.Source) ?? "";
         box.Foreground = meter.ValidationMessage.Length == 0 ? Brushes.Black : Brushes.DarkRed;
         box.BorderBrush = meter.ValidationMessage.Length == 0 ? SystemColors.ControlDarkBrush : Brushes.IndianRed;
         box.BorderThickness = new Thickness(meter.ValidationMessage.Length == 0 ? 1 : 2);
@@ -309,7 +330,7 @@ public partial class SettingsWindow : Window
     {
         if (!_initialized || _capturing || sender is not TextBox box ||
             box.DataContext is not SourceMeter meter) return;
-        var error = InputError(box.Text);
+        var error = InputError(box.Text, meter.Source);
         if (error is null && int.TryParse(box.Text, out int n))
         {
             meter.Source.InputNumber = n;
@@ -361,7 +382,15 @@ public partial class SettingsWindow : Window
     public bool IsCapturing => _capturing || _starting;
     private async void StartCaptureClicked(object sender, RoutedEventArgs e)
     {
-        if (_capturing || _starting || DeviceBox.SelectedItem is not AudioDeviceInfo device) return;
+        if (_capturing || _starting) return;
+        if (DeviceBox.SelectedItem is not AudioDeviceInfo device &&
+            (_settings.Backend == AudioBackend.Asio ||
+             _settings.Sources.Any(s => s.Enabled && string.IsNullOrWhiteSpace(s.WasapiDeviceId))))
+        {
+            CaptureStatus.Text = "Select a default audio device or assign one to each enabled source.";
+            return;
+        }
+        string defaultDeviceId = (DeviceBox.SelectedItem as AudioDeviceInfo)?.Id ?? _settings.DeviceName;
         try
         {
             foreach (var meter in _meters)
@@ -428,7 +457,7 @@ public partial class SettingsWindow : Window
                 if (_capturing) CaptureStatus.Text = message;
             });
             _capture.SourceAudioAvailable += OnSourceAudio;
-            _capture.Start(_settings.Backend, device.Id, _settings.Sources);
+            _capture.Start(_settings.Backend, defaultDeviceId, _settings.Sources);
             _capturing = true;
             _starting = false;
             StartCaptureButton.IsEnabled = false;
