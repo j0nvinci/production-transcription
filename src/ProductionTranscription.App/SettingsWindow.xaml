@@ -89,7 +89,7 @@
 
     <Border Grid.Row="1" Background="#141D2A" CornerRadius="12" BorderBrush="#2C3A4D" BorderThickness="1" Padding="8">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-   <ItemsControl x:Name="SourcesList">
+   <ItemsControl x:Name="SourcesList" AllowDrop="True" DragOver="SourcesDragOver" Drop="SourcesDrop">
     <ItemsControl.ItemTemplate>
      <DataTemplate>
       <Border Margin="0,0,0,7" Padding="12" Background="#182435" BorderBrush="#2D3D51" BorderThickness="1" CornerRadius="12">
