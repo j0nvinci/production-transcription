@@ -176,7 +176,7 @@
        <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
               IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade" Focusable="False">
         <Border Background="#172436" BorderBrush="#40536A" BorderThickness="1" CornerRadius="7"
-                MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                MinWidth="{Binding PlacementTarget.ActualWidth, ElementName=PART_Popup}">
          <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                        CanContentScroll="True" Padding="3">
           <ItemsPresenter/>
