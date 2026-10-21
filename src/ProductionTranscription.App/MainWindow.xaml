@@ -4,6 +4,33 @@
  xmlns:svc="clr-namespace:ProductionTranscription.App.Services"
  Title="Production Transcription" Width="1040" Height="760" MinWidth="570" MinHeight="420"
  WindowStartupLocation="CenterScreen" Background="{StaticResource Canvas}">
+ <Window.Resources>
+  <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}">
+   <Setter Property="Width" Value="9"/>
+   <Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="{x:Type ScrollBar}">
+      <Grid Background="Transparent" Margin="2,3">
+       <Track x:Name="PART_Track" IsDirectionReversed="True">
+        <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" IsTabStop="False"/></Track.DecreaseRepeatButton>
+        <Track.Thumb>
+         <Thumb>
+          <Thumb.Template>
+           <ControlTemplate TargetType="{x:Type Thumb}">
+            <Border Background="#51647C" CornerRadius="4" MinHeight="24"/>
+           </ControlTemplate>
+          </Thumb.Template>
+         </Thumb>
+        </Track.Thumb>
+        <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" IsTabStop="False"/></Track.IncreaseRepeatButton>
+       </Track>
+      </Grid>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
+  </Style>
+ </Window.Resources>
  <Grid x:Name="ShellGrid" Margin="22">
   <Grid.RowDefinitions>
    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
@@ -45,7 +72,12 @@
      <TextBlock Text="CHANNELS" DockPanel.Dock="Top" FontSize="11" Foreground="#91A5BC"
        FontWeight="Bold" Margin="14,15,0,12"/>
      <ListBox x:Name="ChannelList" Background="Transparent" BorderThickness="0"
+      ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+      ScrollViewer.CanContentScroll="True"
       Foreground="#F3F6FD" SelectionChanged="ChannelSelectionChanged">
+      <ListBox.Resources>
+       <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource SlimScrollBar}"/>
+      </ListBox.Resources>
       <ListBox.ItemContainerStyle>
        <Style TargetType="ListBoxItem">
         <Setter Property="Padding" Value="9,10"/>
