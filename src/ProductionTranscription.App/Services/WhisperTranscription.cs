@@ -99,7 +99,7 @@ public sealed class WhisperTranscription : ITranscriptionSession
             {
                 if (!string.IsNullOrWhiteSpace(segment.Text)) words.Add(segment.Text.Trim());
             }
-            return string.Join(" ", words).Trim();
+            return WhisperTranscriptFilter.Clean(string.Join(" ", words));
         }
         finally { _inferGate.Release(); }
     }
