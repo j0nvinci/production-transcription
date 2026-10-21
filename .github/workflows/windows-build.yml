@@ -1,23 +1,57 @@
-name: Windows build
+name: Windows build and release
+
 on:
   push:
     branches: [main, feature/web-viewer]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@v5
+          fetch-depth: 0
+      - name: Validate release tag and determine version
+        id: version
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:REF_TYPE -eq 'tag') {
+            if ($env:REF_NAME -notmatch '^v(\d+)\.(\d+)\.(\d+)(?:-(?:alpha|beta|rc)\.(\d+))?$') {
+              throw "Unsupported release tag. Use v1.2.3 or v1.2.3-beta.1 (alpha/rc also supported)."
+            }
+            git fetch origin main --no-tags
+            git merge-base --is-ancestor HEAD origin/main
+            if ($LASTEXITCODE -ne 0) { throw "Release tags must point to commits already on main." }
+            $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
+            if ($Matches[4]) { $version += ".$($Matches[5])" }
+            $prerelease = if ($Matches[4]) { 'true' } else { 'false' }
+          } else {
+            $version = "0.1.$env:GITHUB_RUN_NUMBER"
+            $prerelease = 'false'
+          }
+          "release_version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
       - name: Generate app icon
+        shell: pwsh
         run: |
           python -m pip install Pillow
           python tools/generate_icon.py
@@ -27,32 +61,69 @@ jobs:
         run: dotnet build src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --no-restore
       - name: Publish executable
         run: dotnet publish src/ProductionTranscription.App/ProductionTranscription.App.csproj -c Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/windows-x64
-      - name: Upload portable build
-        uses: actions/upload-artifact@v5
-        with:
-          name: production-transcription-windows-x64
-          path: artifacts/windows-x64/
-          if-no-files-found: error
-          retention-days: 30
+      - name: Package portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/release | Out-Null
+          Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/release/ProductionTranscription-Windows-x64-Portable.zip
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
       - name: Build installer
         shell: pwsh
+        env:
+          APP_VERSION: ${{ steps.version.outputs.release_version }}
         run: |
-          $version = "0.1.${{ github.run_number }}"
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "installer\ProductionTranscription.iss"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:APP_VERSION" "installer\ProductionTranscription.iss"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Hash installer
+      - name: Prepare release assets and checksums
         shell: pwsh
         run: |
-          Get-FileHash artifacts/installer/ProductionTranscription-Setup.exe -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash)  ProductionTranscription-Setup.exe" } |
-            Set-Content artifacts/installer/SHA256SUMS.txt
-      - name: Upload installer
-        uses: actions/upload-artifact@v5
+          Copy-Item artifacts/installer/ProductionTranscription-Setup.exe artifacts/release/
+          $files = Get-ChildItem artifacts/release -File | Sort-Object Name
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content -Encoding ascii artifacts/release/SHA256SUMS.txt
+      - name: Upload portable build (CI artifact)
+        uses: actions/upload-artifact@v4
         with:
-          name: production-transcription-installer
-          path: artifacts/installer/
+          name: production-transcription-windows-x64
+          path: artifacts/windows-x64/
           if-no-files-found: error
           retention-days: 30
+      - name: Upload release assets (CI artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-transcription-release-assets
+          path: artifacts/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated build assets
+        uses: actions/download-artifact@v4
+        with:
+          name: production-transcription-release-assets
+          path: release-assets
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=(--title "Production Transcription ${TAG}" --generate-notes --verify-tag)
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${TAG}" release-assets/ProductionTranscription-Setup.exe release-assets/ProductionTranscription-Windows-x64-Portable.zip release-assets/SHA256SUMS.txt "${args[@]}"
