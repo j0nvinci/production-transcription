@@ -61,8 +61,30 @@
    </StackPanel></Border>
 
    <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
+    <StackPanel>
+     <TextBlock Text="02   WEB VIEWER" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,12"/>
+     <CheckBox x:Name="WebEnabledBox" Content="Enable web UI" Checked="WebSettingsChanged" Unchecked="WebSettingsChanged" Margin="0,0,0,10"/>
+     <TextBlock Text="Listening network interface" Margin="0,0,0,5"/>
+     <ComboBox x:Name="WebInterfaceBox" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="WebSettingsChanged" Margin="0,0,0,10"/>
+     <TextBlock Text="TCP port" Margin="0,0,0,5"/>
+     <TextBox x:Name="WebPortBox" Width="110" HorizontalAlignment="Left" LostFocus="WebSettingsChanged" Margin="0,0,0,10"/>
+     <TextBlock Text="Access permissions" Margin="0,0,0,5"/>
+     <ComboBox x:Name="WebAccessBox" SelectionChanged="WebSettingsChanged" Margin="0,0,0,10">
+      <ComboBoxItem Content="Read only (viewer)"/>
+      <ComboBoxItem Content="Read/write (start and stop capture)"/>
+     </ComboBox>
+     <TextBlock Text="Access token (required)" Margin="0,0,0,5"/>
+     <DockPanel Margin="0,0,0,8">
+      <Button DockPanel.Dock="Right" Content="Regenerate" Click="RegenerateWebToken" Padding="8,3"/>
+      <TextBox x:Name="WebTokenBox" IsReadOnly="True" Margin="0,0,6,0"/>
+     </DockPanel>
+     <TextBlock x:Name="WebStatus" TextWrapping="Wrap" Foreground="#92A7BD" FontSize="12"/>
+     <TextBlock Text="HTTP is unencrypted. Use only on trusted LAN/VPN networks; never forward this port to the Internet." TextWrapping="Wrap" Foreground="#E7B87D" FontSize="11" Margin="0,8,0,0"/>
+    </StackPanel>
+   </Border>
+   <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
    <StackPanel>
-   <TextBlock Text="02   RECOGNITION ENGINE" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
+   <TextBlock Text="03   RECOGNITION ENGINE" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
    <DockPanel Margin="0,0,0,12">
     <Button DockPanel.Dock="Right" Content="Refresh models" Click="RefreshModelsClicked" Padding="8,4" Margin="8,0,0,0"/>
     <StackPanel>
