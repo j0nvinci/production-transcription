@@ -95,6 +95,12 @@
       <Border Margin="0,0,0,7" Padding="12" Background="#182435" BorderBrush="#2D3D51" BorderThickness="1" CornerRadius="12">
        <StackPanel>
         <WrapPanel>
+         <Border Background="#26384B" CornerRadius="5" Padding="8,3" Margin="0,0,10,0"
+                 Cursor="SizeAll" Tag="{Binding Source}"
+                 PreviewMouseLeftButtonDown="SourceGrabMouseDown" MouseMove="SourceGrabMouseMove"
+                 ToolTip="Drag to reorder source">
+          <TextBlock Text="☰" FontSize="19" Foreground="#59E0C0" IsHitTestVisible="False"/>
+         </Border>
         <CheckBox Content="On" IsChecked="{Binding Source.Enabled, Mode=TwoWay}"
           Margin="0,7,12,0" Checked="SourceChanged" Unchecked="SourceChanged"/>
         <TextBox Width="195" Text="{Binding Source.Name, UpdateSourceTrigger=PropertyChanged}" TextChanged="SourceChanged"/>
