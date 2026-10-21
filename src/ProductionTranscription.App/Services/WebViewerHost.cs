@@ -78,7 +78,8 @@ public sealed class WebViewerHost : IAsyncDisposable
         if (_app is null) return;
         var app = _app;
         _app = null;
-        await app.StopAsync(TimeSpan.FromSeconds(3).Equals(TimeSpan.Zero) ? CancellationToken.None : new CancellationTokenSource(TimeSpan.FromSeconds(3)).Token);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try { await app.StopAsync(timeout.Token); } catch (OperationCanceledException) { }
         await app.DisposeAsync();
     }
     public async ValueTask DisposeAsync() { await StopAsync(); _lifecycle.Dispose(); }
