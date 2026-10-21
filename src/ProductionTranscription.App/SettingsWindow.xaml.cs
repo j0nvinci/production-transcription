@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
     private int? _detectedChannels;
     private readonly AudioCaptureSession _capture = new();
     public ObservableCollection<AudioDeviceInfo> WasapiDevices { get; } = new();
+    public AudioDeviceInfo? DefaultWasapiDevice => WasapiDevices.FirstOrDefault(d => d.Id == _settings.DeviceName);
     public bool IsWasapiMode => _settings.Backend == AudioBackend.Wasapi;
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
@@ -54,6 +55,7 @@ public partial class SettingsWindow : Window
         _loadingKey = true;
         GroqKeyBox.Password = GroqKeyStore.Load();
         _loadingKey = false;
+        DataContext = this;
         RefreshSourceMeters();
         _initialized = true;
         RefreshDevices();
