@@ -108,19 +108,97 @@
    <Setter Property="BorderBrush" Value="#4A6077"/>
    <Setter Property="Padding" Value="9,7"/>
   </Style>
-  <!-- Native WPF ComboBox chrome remains light; use dark text until its entire template is replaced. -->
-  <Style TargetType="ComboBox">
-   <Setter Property="Background" Value="#EAF0F7"/>
-   <Setter Property="Foreground" Value="#152335"/>
-   <Setter Property="BorderBrush" Value="#4A6077"/>
-   <Setter Property="Padding" Value="6,5"/>
-   <Setter Property="FontSize" Value="12"/>
-   <Setter Property="ItemContainerStyle">
+  <!-- Shared non-editable ComboBox template: dark chrome, dark popup, and visible disabled states. -->
+  <Style TargetType="{x:Type ComboBoxItem}">
+   <Setter Property="Foreground" Value="#F1F6FD"/>
+   <Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Padding" Value="9,7"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="Template">
     <Setter.Value>
-     <Style TargetType="ComboBoxItem">
-      <Setter Property="Foreground" Value="#152335"/>
-      <Setter Property="Background" Value="#EAF0F7"/>
-     </Style>
+     <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+      <Border x:Name="ItemChrome" Background="{TemplateBinding Background}" CornerRadius="5" Margin="3,1" Padding="{TemplateBinding Padding}">
+       <ContentPresenter/>
+      </Border>
+      <ControlTemplate.Triggers>
+       <Trigger Property="IsHighlighted" Value="True">
+        <Setter TargetName="ItemChrome" Property="Background" Value="#294A57"/>
+       </Trigger>
+       <Trigger Property="IsSelected" Value="True">
+        <Setter TargetName="ItemChrome" Property="Background" Value="#275A58"/>
+       </Trigger>
+       <Trigger Property="IsEnabled" Value="False">
+        <Setter Property="Opacity" Value="0.55"/>
+       </Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
+  </Style>
+  <Style TargetType="{x:Type ComboBox}">
+   <Setter Property="Background" Value="#202F42"/>
+   <Setter Property="Foreground" Value="#F1F6FD"/>
+   <Setter Property="BorderBrush" Value="#40536A"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Padding" Value="9,6"/>
+   <Setter Property="FontSize" Value="12"/>
+   <Setter Property="MinHeight" Value="28"/>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="{x:Type ComboBox}">
+      <Grid>
+       <Border x:Name="ComboChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+               BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6"/>
+       <Grid>
+        <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="*"/>
+         <ColumnDefinition Width="30"/>
+        </Grid.ColumnDefinitions>
+        <ContentPresenter x:Name="ContentSite" Grid.Column="0" Margin="{TemplateBinding Padding}"
+                          VerticalAlignment="Center" HorizontalAlignment="Left"
+                          Content="{TemplateBinding SelectionBoxItem}"
+                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                          IsHitTestVisible="False"/>
+        <ToggleButton x:Name="DropDownToggle" Grid.ColumnSpan="2" Focusable="False"
+                      Background="Transparent" BorderThickness="0" ClickMode="Press"
+                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+         <ToggleButton.Template>
+          <ControlTemplate TargetType="{x:Type ToggleButton}">
+           <Grid Background="Transparent">
+            <Path Data="M 0 0 L 4 4 L 8 0" Stroke="#91A9C0" StrokeThickness="1.7"
+                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0"/>
+           </Grid>
+          </ControlTemplate>
+         </ToggleButton.Template>
+        </ToggleButton>
+       </Grid>
+       <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
+              IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade" Focusable="False">
+        <Border Background="#172436" BorderBrush="#40536A" BorderThickness="1" CornerRadius="7"
+                MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+         <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                       CanContentScroll="True" Padding="3">
+          <ItemsPresenter/>
+         </ScrollViewer>
+        </Border>
+       </Popup>
+      </Grid>
+      <ControlTemplate.Triggers>
+       <Trigger Property="IsMouseOver" Value="True">
+        <Setter TargetName="ComboChrome" Property="BorderBrush" Value="#59E0C0"/>
+       </Trigger>
+       <Trigger Property="IsDropDownOpen" Value="True">
+        <Setter TargetName="ComboChrome" Property="BorderBrush" Value="#59E0C0"/>
+       </Trigger>
+       <Trigger Property="IsEnabled" Value="False">
+        <Setter TargetName="ComboChrome" Property="Background" Value="#1A2534"/>
+        <Setter TargetName="ComboChrome" Property="BorderBrush" Value="#354358"/>
+        <Setter TargetName="ContentSite" Property="Opacity" Value="0.65"/>
+        <Setter TargetName="DropDownToggle" Property="Opacity" Value="0.45"/>
+       </Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
     </Setter.Value>
    </Setter>
   </Style>
