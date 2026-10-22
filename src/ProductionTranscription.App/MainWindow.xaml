@@ -23,6 +23,9 @@
    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
     <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Content="▶  Start listening" Margin="0,0,8,0" Click="StartClicked"/>
     <Button x:Name="StopButton" Content="■  Stop" Margin="0,0,8,0" Click="StopClicked"/>
+    <Button Content="A−" ToolTip="Decrease transcript font size" Margin="0,0,5,0" Click="FontSmallerClicked"/>
+    <Button Content="A+" ToolTip="Increase transcript font size" Margin="0,0,5,0" Click="FontLargerClicked"/>
+    <Button x:Name="OrderButton" Content="Newest ↓" ToolTip="Toggle message ordering" Margin="0,0,8,0" Click="OrderClicked"/>
     <Button x:Name="CompactButton" Content="Compact" Margin="0,0,8,0" Click="CompactClicked"/>
     <Button x:Name="ThemeButton" Content="Light" Margin="0,0,8,0" Click="ThemeClicked"/>
     <Button Content="⚙  Settings" Click="SettingsClicked"/>
@@ -112,7 +115,7 @@
           <TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="{DynamicResource MessageSecondary}" FontSize="11"/>
          </Grid>
          <TextBlock svc:CensoredText.Text="{Binding Words}" svc:CensoredText.Filter="{Binding Filter}"
-          TextWrapping="Wrap" FontSize="16" LineHeight="24" Foreground="{DynamicResource MessageText}"/>
+          TextWrapping="Wrap" FontSize="{Binding ElementName=ChatList, Path=FontSize}" Foreground="{DynamicResource MessageText}"/>
          <TextBlock Text="{Binding State}" Foreground="#59E0C0" FontSize="11" Margin="0,7,0,0" FontStyle="Italic"/>
         </StackPanel>
        </Grid>
