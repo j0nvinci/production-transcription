@@ -36,6 +36,7 @@ public partial class SettingsWindow : Window
     public event Action? SourcesChanged;
     public event Action<AppSettings>? WebSettingsUpdated;
     public AppSettings WebConfiguration => _settings;
+    public void SaveTranscriptPreferences() => SaveSettings();
     public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
     public bool CompactView { get => _settings.CompactView; set { _settings.CompactView = value; SaveSettings(); } }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
