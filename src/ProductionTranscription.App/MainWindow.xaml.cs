@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         RefreshChannels();
         ApplyTheme(_settingsWindow.LightTheme);
         ApplyCompact(_settingsWindow.CompactView);
+        ApplyTranscriptPreferences();
         _settingsWindow.SourceColorChanged += (name, hex) =>
         {
             _sourceColors.Remove(name);
@@ -66,7 +67,7 @@ public partial class MainWindow : Window
                 _messages.Add(item);
             }
             else item.Words = words;
-            if (_selectedChannel is null || _selectedChannel == source) ChatList.ScrollIntoView(item);
+            if (_selectedChannel is null || _selectedChannel == source) if (_settingsWindow.WebConfiguration.AutoScrollEnabled) ChatList.ScrollIntoView(item);
         };
         _settingsWindow.TranscriptReceived += (source, words) =>
         {
@@ -82,7 +83,7 @@ public partial class MainWindow : Window
                 _messages.Add(item);
             }
             while (_messages.Count > 500) _messages.RemoveAt(0);
-            ChatList.ScrollIntoView(item);
+            if (_settingsWindow.WebConfiguration.AutoScrollEnabled) ChatList.ScrollIntoView(item);
         };
         _settingsWindow.StatusChanged += message => StatusText.Text = message;
         _statusTimer.Tick += (_, _) =>
@@ -175,6 +176,31 @@ public partial class MainWindow : Window
         foreach (var item in _drafts.Values.ToArray()) _messages.Remove(item);
         _drafts.Clear();
     }
+    private void ApplyTranscriptPreferences()
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        ChatList.FontSize = Math.Clamp(settings.DesktopTranscriptFontSize, 10, 36);
+        _view!.SortDescriptions.Clear();
+        _view.SortDescriptions.Add(new SortDescription(nameof(ChatMessage.Sequence),
+            settings.DesktopNewestFirst ? ListSortDirection.Descending : ListSortDirection.Ascending));
+        OrderButton.Content = settings.DesktopNewestFirst ? "Newest ↑" : "Newest ↓";
+    }
+    private void FontSmallerClicked(object sender, RoutedEventArgs e) => ChangeFont(-1);
+    private void FontLargerClicked(object sender, RoutedEventArgs e) => ChangeFont(1);
+    private void ChangeFont(int delta)
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        settings.DesktopTranscriptFontSize = Math.Clamp(settings.DesktopTranscriptFontSize + delta, 10, 36);
+        _settingsWindow.SaveTranscriptPreferences();
+        ApplyTranscriptPreferences();
+    }
+    private void OrderClicked(object sender, RoutedEventArgs e)
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        settings.DesktopNewestFirst = !settings.DesktopNewestFirst;
+        _settingsWindow.SaveTranscriptPreferences();
+        ApplyTranscriptPreferences();
+    }
     private void CompactClicked(object sender, RoutedEventArgs e)
     {
         ApplyCompact(!_compact);
@@ -220,6 +246,8 @@ public partial class MainWindow : Window
     }
     public sealed class ChatMessage : INotifyPropertyChanged
     {
+        private static long _nextSequence;
+        public long Sequence { get; } = System.Threading.Interlocked.Increment(ref _nextSequence);
         public string Source { get; }
         public string Time { get; }
         private Brush _accent;
