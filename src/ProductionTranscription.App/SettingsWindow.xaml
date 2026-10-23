@@ -73,11 +73,8 @@
       <ComboBoxItem Content="Read only (viewer)"/>
       <ComboBoxItem Content="Read/write (start and stop capture)"/>
      </ComboBox>
-     <TextBlock Text="Access token (required)" Margin="0,0,0,5"/>
-     <DockPanel Margin="0,0,0,8">
-      <Button DockPanel.Dock="Right" Content="Regenerate" Click="RegenerateWebToken" Padding="8,3"/>
-      <TextBox x:Name="WebTokenBox" IsReadOnly="True" Margin="0,0,6,0"/>
-     </DockPanel>
+     <TextBlock Text="Web password (optional — leave blank for unrestricted access)" Margin="0,0,0,5"/>
+     <TextBox x:Name="WebPasswordBox" LostFocus="WebPasswordChanged" Margin="0,0,0,8" ToolTip="Blank means no password. Use only on trusted networks."/>
      <TextBlock x:Name="WebStatus" TextWrapping="Wrap" Foreground="#92A7BD" FontSize="12"/>
      <TextBlock Text="HTTP is unencrypted. Use only on trusted LAN/VPN networks; never forward this port to the Internet." TextWrapping="Wrap" Foreground="#E7B87D" FontSize="11" Margin="0,8,0,0"/>
     </StackPanel>
