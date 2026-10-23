@@ -24,7 +24,7 @@ public sealed class WebViewerHost : IAsyncDisposable
             .Select(a => a.Address.ToString()))
         .Distinct().ToArray();
 
-    public async Task StartAsync(AppSettings config, Func<object> snapshot, Func<bool, Task> captureControl)
+    public async Task StartAsync(AppSettings config, Func<object> snapshot, Func<bool, Task> captureControl, Func<string, Guid?, Task> messageControl)
     {
         await _lifecycle.WaitAsync();
         try
@@ -65,6 +65,19 @@ public sealed class WebViewerHost : IAsyncDisposable
                 // Bearer authorization is sent as a custom header; browsers cannot issue it cross-origin without preflight.
                 await captureControl(action == "start");
                 return Results.Ok(new { accepted = true });
+            });
+            app.MapPost("/api/messages/{action}", async (string action, HttpRequest req) =>
+            {
+                if (!Authorized(req, secret)) return Results.Unauthorized();
+                if (!writable) return Results.StatusCode(403);
+                if (req.Headers.Origin.Count > 0 && !string.Equals(req.Headers.Origin.ToString(),
+                    $"{req.Scheme}://{req.Host}", StringComparison.OrdinalIgnoreCase)) return Results.StatusCode(403);
+                if (req.Headers["X-Requested-With"] != "ProductionTranscription") return Results.StatusCode(403);
+                if (action == "clear") { await messageControl("clear", null); return Results.Ok(); }
+                if (action != "delete" && action != "pin") return Results.NotFound();
+                if (!Guid.TryParse(req.Query["id"], out var id)) return Results.BadRequest();
+                await messageControl(action, id);
+                return Results.Ok();
             });
             await app.StartAsync();
             _app = app;
