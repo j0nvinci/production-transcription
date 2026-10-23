@@ -9,7 +9,7 @@ using ProductionTranscription.App.Models;
 
 namespace ProductionTranscription.App.Services;
 
-/// <summary>Optional HTTP viewer. A per-install bearer token protects every data/control endpoint.</summary>
+/// <summary>Optional HTTP viewer with configurable password (blank disables authentication).</summary>
 public sealed class WebViewerHost : IAsyncDisposable
 {
     private WebApplication? _app;
@@ -35,15 +35,15 @@ public sealed class WebViewerHost : IAsyncDisposable
             if (!IPAddress.TryParse(config.WebBindAddress, out var address) ||
                 address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
                 throw new ArgumentException("Choose a valid IPv4 listener address.");
-            if (string.IsNullOrWhiteSpace(config.WebAccessToken)) throw new InvalidOperationException("Missing web access token.");
 
             var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = Array.Empty<string>() });
             builder.WebHost.UseKestrel(options => options.Listen(address, config.WebPort));
             var app = builder.Build();
-            string secret = config.WebAccessToken;
+            string secret = config.WebPassword ?? "";
             bool writable = config.WebReadWrite;
             static bool Authorized(HttpRequest req, string token)
             {
+                if (token.Length == 0) return true;
                 string supplied = req.Headers.Authorization.ToString();
                 if (!supplied.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return false;
                 byte[] expected = SHA256.HashData(Encoding.UTF8.GetBytes(token));
@@ -57,6 +57,10 @@ public sealed class WebViewerHost : IAsyncDisposable
             {
                 if (!Authorized(req, secret)) return Results.Unauthorized();
                 if (!writable) return Results.StatusCode(403);
+                // Reject cross-origin browser writes even when password protection is disabled.
+                if (req.Headers.Origin.Count > 0 && !string.Equals(req.Headers.Origin.ToString(),
+                    $"{req.Scheme}://{req.Host}", StringComparison.OrdinalIgnoreCase)) return Results.StatusCode(403);
+                if (req.Headers["X-Requested-With"] != "ProductionTranscription") return Results.StatusCode(403);
                 if (action != "start" && action != "stop") return Results.NotFound();
                 // Bearer authorization is sent as a custom header; browsers cannot issue it cross-origin without preflight.
                 await captureControl(action == "start");
@@ -102,7 +106,7 @@ button.selected{border-color:#59e0c0;background:#244c50}
 </style></head><body>
 <header><h1>Production Transcription</h1><small id="status">Connect to view transcript</small>
 <div id="controls"><button id="start">Start capture</button> <button id="stop">Stop capture</button></div></header>
-<div id="login"><label>Access token <input type="password" id="token" autocomplete="off"></label>
+<div id="login"><label>Web password <input type="password" id="token" autocomplete="off"></label>
 <button id="connect">Connect</button> <span id="error"></span></div>
 <main><nav id="channels"></nav><section><h2 id="heading">All communications</h2><div id="feed"></div></section></main>
 <script>
@@ -110,10 +114,10 @@ let token='',selected=null,busy=false,latest=null;
 const $=id=>document.getElementById(id);
 $('connect').onclick=()=>{token=$('token').value.trim();$('token').value='';poll()};
 $('start').onclick=()=>control('start');$('stop').onclick=()=>control('stop');
-async function control(action){try{let r=await fetch('/api/capture/'+action,{method:'POST',headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('HTTP '+r.status);await poll()}catch(e){$('error').textContent=e.message}}
-async function poll(){if(!token||busy)return;busy=true;try{
+async function control(action){try{let r=await fetch('/api/capture/'+action,{method:'POST',headers:{Authorization:'Bearer '+token,'X-Requested-With':'ProductionTranscription'}});if(!r.ok)throw Error('HTTP '+r.status);await poll()}catch(e){$('error').textContent=e.message}}
+async function poll(){if(busy)return;busy=true;try{
 let r=await fetch('/api/snapshot',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
-if(!r.ok)throw Error(r.status===401?'Invalid access token':'HTTP '+r.status);
+if(!r.ok)throw Error(r.status===401?'Incorrect web password':'HTTP '+r.status);
 let result=await r.json();latest=result.state;$('login').style.display='none';$('error').textContent='';
 $('controls').style.display=result.writable?'block':'none';
 $('status').textContent=latest.capturing?'Capture active':'Capture stopped';
@@ -128,6 +132,7 @@ let div=document.createElement('div');div.className='message';div.style.borderLe
 let meta=document.createElement('div');meta.className='meta';meta.textContent=m.source+' • '+m.time+(m.partial?' • Listening…':'');
 let body=document.createElement('div');body.textContent=m.words;div.append(meta,body);feed.append(div)}
 }
+poll();
 setInterval(poll,750);
 </script></body></html>
 """;
