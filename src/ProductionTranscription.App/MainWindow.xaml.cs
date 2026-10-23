@@ -94,6 +94,7 @@ public partial class MainWindow : Window
             StopButton.IsEnabled = _settingsWindow.IsCapturing;
         };
         _statusTimer.Start();
+        PreviewKeyDown += OperatorKeyDown;
         Closing += (_, _) => { _statusTimer.Stop(); _ = _webViewer.StopAsync(); _settingsWindow.Shutdown(); };
     }
     private object WebSnapshot() => new
@@ -221,6 +222,32 @@ public partial class MainWindow : Window
         settings.DesktopNewestFirst = !settings.DesktopNewestFirst;
         _settingsWindow.SaveTranscriptPreferences();
         ApplyTranscriptPreferences();
+    }
+    private void OperatorKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        if (!ctrl) return;
+        if (e.Key == System.Windows.Input.Key.F)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.OemPlus || e.Key == System.Windows.Input.Key.Add)
+        {
+            ChangeFont(1);
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.OemMinus || e.Key == System.Windows.Input.Key.Subtract)
+        {
+            ChangeFont(-1);
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.Home)
+        {
+            JumpToLiveClicked(sender, e);
+            e.Handled = true;
+        }
     }
     private void SearchChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
