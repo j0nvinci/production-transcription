@@ -37,7 +37,12 @@ public partial class SettingsWindow : Window
     public event Action<AppSettings>? WebSettingsUpdated;
     public event Action? OperatorSettingsUpdated;
     public AppSettings WebConfiguration => _settings;
-    public void SaveTranscriptPreferences() => SaveSettings();
+    public void SaveTranscriptPreferences()
+    {
+        DesktopFontBox.Text = _settings.DesktopTranscriptFontSize.ToString();
+        DesktopNewestBox.IsChecked = _settings.DesktopNewestFirst;
+        SaveSettings();
+    }
     public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
     public bool CompactView { get => _settings.CompactView; set { _settings.CompactView = value; SaveSettings(); } }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
