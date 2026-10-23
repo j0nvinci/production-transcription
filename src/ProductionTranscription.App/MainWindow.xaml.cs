@@ -130,6 +130,19 @@ public partial class MainWindow : Window
                             _drafts.Clear();
                         }
                     });
+                },
+                async (action, id) =>
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (action == "clear") ClearMessages();
+                        else if (id.HasValue && action == "delete") DeleteMessage(id.Value);
+                        else if (id.HasValue && action == "pin" && _settingsWindow.WebConfiguration.PinningEnabled)
+                        {
+                            var msg = _messages.FirstOrDefault(m => m.Id == id.Value);
+                            if (msg is not null) msg.Pinned = !msg.Pinned;
+                        }
+                    });
                 });
             _settingsWindow.SetWebError(_settingsWindow.WebConfiguration.WebEnabled
                 ? "Web listener active — authentication follows web password setting" : "Web viewer disabled");
