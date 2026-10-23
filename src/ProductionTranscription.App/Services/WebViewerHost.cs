@@ -134,7 +134,7 @@ body.kiosk main{height:100vh}body.kiosk section{padding:8px}
 <input id="search" placeholder="Search transcript" aria-label="Search transcript" style="width:140px">
 <select id="density"><option value="normal">Normal</option><option value="compact">Compact</option><option value="spacious">Spacious</option></select>
 <select id="clock"><option value="hms24">24h seconds</option><option value="hm24">24h</option><option value="hms12">12h seconds</option><option value="hm12">12h</option><option value="none">Hide time</option></select>
-<button id="pins">Pinned only</button><button id="kiosk">Kiosk</button>
+<button id="pins">Pinned only</button><select id="preset"><option value="all">All sources</option><option value="selected">Selected source</option></select><button id="kiosk">Kiosk</button>
 <button id="clear" class="hidden">Clear all</button>
 </div>
 <h2 id="heading">All communications</h2><small id="health"></small><div id="feed"></div></section></main>
@@ -144,6 +144,7 @@ const $=id=>document.getElementById(id);
 const load=(k,fallback)=>{try{let v=localStorage.getItem('pt-'+k);return v===null?fallback:JSON.parse(v)}catch{return fallback}};
 const save=(k,v)=>{try{localStorage.setItem('pt-'+k,JSON.stringify(v))}catch{}};
 let prefs={font:load('font',null),newest:load('newest',null),density:load('density','normal'),clock:load('clock','hms24'),kiosk:false};
+let preset=load('preset','all');
 function applyPrefs(){
 $('feed').style.fontSize=prefs.font+'px';$('order').textContent=prefs.newest?'Newest first':'Newest last';
 $('density').value=prefs.density;$('clock').value=prefs.clock;
@@ -157,6 +158,7 @@ $('order').onclick=()=>{prefs.newest=!prefs.newest;save('newest',prefs.newest);a
 $('density').onchange=()=>{prefs.density=$('density').value;save('density',prefs.density);applyPrefs()};
 $('clock').onchange=()=>{prefs.clock=$('clock').value;save('clock',prefs.clock);render()};
 $('search').oninput=render;
+$('preset').onchange=()=>{preset=$('preset').value;save('preset',preset);render()};
 $('pins').onclick=()=>{onlyPins=!onlyPins;$('pins').classList.toggle('selected',onlyPins);render()};
 $('kiosk').onclick=()=>{prefs.kiosk=!prefs.kiosk;applyPrefs()};
 $('live').onclick=jumpLive;
@@ -180,6 +182,7 @@ $('login').classList.add('hidden');$('error').textContent='';$('controls').style
 $('clear').classList.toggle('hidden',!writable);
 $('kiosk').classList.toggle('hidden',!latest.settings.kiosk);
 $('pins').classList.toggle('hidden',!latest.settings.pinning);
+$('preset').classList.toggle('hidden',!latest.settings.presets);
 $('status').textContent=latest.capturing?'Capture active':'Capture stopped';
 $('health').textContent=latest.settings.health?'Viewer connected • '+latest.messages.length+' messages':'';
 render();
@@ -207,11 +210,13 @@ const nearLive=following;nav.replaceChildren();feed.replaceChildren();
 const channels=[null,...latest.channels];if(selected!==null&&!channels.includes(selected))selected=null;
 for(const name of channels){let b=document.createElement('button');b.textContent=name??'All communications';b.className=name===selected?'selected':'';b.onclick=()=>{selected=name;render()};nav.append(b)}
 $('heading').textContent=selected??'All communications';
+$('preset').value=preset;
 let query=$('search').value.toLowerCase();let messages=prefs.newest?[...latest.messages].reverse():latest.messages;
 for(const m of messages){if(selected!==null&&m.source!==selected)continue;if(onlyPins&&!m.pinned)continue;
 if(query&&!(m.words+' '+m.source).toLowerCase().includes(query))continue;
+if(latest.settings.presets&&preset==='selected'&&selected!==null&&m.source!==selected)continue;
 let div=document.createElement('div');div.className='message'+(m.pinned?' pinned':'');div.style.borderLeftColor=m.color||'#59e0c0';
-let meta=document.createElement('div');meta.className='meta';meta.textContent=m.source+(formatTime(m.time)?' • '+formatTime(m.time):'')+(m.partial?' • Listening…':'')+(m.pinned?' • PINNED':'');
+let meta=document.createElement('div');meta.className='meta';if(latest.settings.emphasis){meta.style.fontWeight='bold';meta.style.color=m.color||'#59e0c0'}meta.textContent=m.source+(formatTime(m.time)?' • '+formatTime(m.time):'')+(m.partial?' • Listening…':'')+(m.pinned?' • PINNED':'');
 let body=document.createElement('div');highlighted(body,m.words);div.append(meta,body);
 if(writable){let actions=document.createElement('div');actions.className='actions';
 if(latest.settings.pinning){let pin=document.createElement('button');pin.textContent=m.pinned?'Unpin':'Pin';pin.onclick=()=>messageAction('pin',m.id);actions.append(pin)}
