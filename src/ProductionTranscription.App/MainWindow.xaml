@@ -26,7 +26,7 @@
     <Button Content="A−" ToolTip="Decrease transcript font size" Margin="0,0,5,0" Click="FontSmallerClicked"/>
     <Button Content="A+" ToolTip="Increase transcript font size" Margin="0,0,5,0" Click="FontLargerClicked"/>
     <Button Content="Clear" ToolTip="Clear all messages" Margin="0,0,5,0" Click="ClearClicked"/>
-    <Button Content="Search" Margin="0,0,5,0" Click="SearchClicked"/>
+    <TextBox x:Name="SearchBox" Width="115" ToolTip="Filter transcript by text" Margin="0,0,5,0" TextChanged="SearchChanged"/>
     <Button x:Name="OrderButton" Content="Newest ↓" ToolTip="Toggle message ordering" Margin="0,0,8,0" Click="OrderClicked"/>
     <Button x:Name="CompactButton" Content="Compact" Margin="0,0,8,0" Click="CompactClicked"/>
     <Button x:Name="ThemeButton" Content="Light" Margin="0,0,8,0" Click="ThemeClicked"/>
