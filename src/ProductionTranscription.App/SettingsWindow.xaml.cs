@@ -35,6 +35,7 @@ public partial class SettingsWindow : Window
     public event Action<string, string>? SourceColorChanged;
     public event Action? SourcesChanged;
     public event Action<AppSettings>? WebSettingsUpdated;
+    public event Action? OperatorSettingsUpdated;
     public AppSettings WebConfiguration => _settings;
     public void SaveTranscriptPreferences() => SaveSettings();
     public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
@@ -61,6 +62,7 @@ public partial class SettingsWindow : Window
         DataContext = this;
         RefreshSourceMeters();
         InitializeWebSettings();
+        InitializeOperatorSettings();
         _initialized = true;
         RefreshDevices();
         RefreshModels();
@@ -80,6 +82,50 @@ public partial class SettingsWindow : Window
             if (!_shuttingDown) { e.Cancel = true; Hide(); }
             else { StopCapture(); SaveSettings(); }
         };
+    }
+    private void InitializeOperatorSettings()
+    {
+        DesktopFontBox.Text = _settings.DesktopTranscriptFontSize.ToString();
+        WebFontBox.Text = _settings.WebTranscriptFontSize.ToString();
+        DesktopNewestBox.IsChecked = _settings.DesktopNewestFirst;
+        WebNewestBox.IsChecked = _settings.WebNewestFirst;
+        AutoScrollBox.IsChecked = _settings.AutoScrollEnabled;
+        KeywordBox.IsChecked = _settings.KeywordHighlightEnabled;
+        KeywordListBox.Text = string.Join(Environment.NewLine, _settings.HighlightKeywords ?? new());
+        SpeechBox.IsChecked = _settings.SpeechActivityEnabled;
+        TimestampsBox.IsChecked = _settings.TimestampsEnabled;
+        PinningBox.IsChecked = _settings.PinningEnabled;
+        EmphasisBox.IsChecked = _settings.SourceEmphasisEnabled;
+        KioskBox.IsChecked = _settings.KioskAvailable;
+        HealthBox.IsChecked = _settings.HealthIndicatorsEnabled;
+        PresetsBox.IsChecked = _settings.VisibilityPresetsEnabled;
+    }
+    private void OperatorSettingsChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        if (!int.TryParse(DesktopFontBox.Text, out int desktop) || desktop is < 10 or > 36 ||
+            !int.TryParse(WebFontBox.Text, out int web) || web is < 10 or > 36)
+        {
+            MessageBox.Show("Font sizes must be between 10 and 36.", "Invalid font size");
+            return;
+        }
+        _settings.DesktopTranscriptFontSize = desktop;
+        _settings.WebTranscriptFontSize = web;
+        _settings.DesktopNewestFirst = DesktopNewestBox.IsChecked == true;
+        _settings.WebNewestFirst = WebNewestBox.IsChecked == true;
+        _settings.AutoScrollEnabled = AutoScrollBox.IsChecked == true;
+        _settings.KeywordHighlightEnabled = KeywordBox.IsChecked == true;
+        _settings.HighlightKeywords = KeywordListBox.Text.Split(new[] { "\r\n", "\n" },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _settings.SpeechActivityEnabled = SpeechBox.IsChecked == true;
+        _settings.TimestampsEnabled = TimestampsBox.IsChecked == true;
+        _settings.PinningEnabled = PinningBox.IsChecked == true;
+        _settings.SourceEmphasisEnabled = EmphasisBox.IsChecked == true;
+        _settings.KioskAvailable = KioskBox.IsChecked == true;
+        _settings.HealthIndicatorsEnabled = HealthBox.IsChecked == true;
+        _settings.VisibilityPresetsEnabled = PresetsBox.IsChecked == true;
+        SaveSettings();
+        OperatorSettingsUpdated?.Invoke();
     }
     private sealed record WebInterface(string Id, string Name);
     private void InitializeWebSettings()
