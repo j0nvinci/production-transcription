@@ -26,7 +26,8 @@ public sealed class AppSettings
     public int WebPort { get; set; } = 8765;
     public string WebBindAddress { get; set; } = "127.0.0.1";
     public bool WebReadWrite { get; set; }
-    public string WebAccessToken { get; set; } = "";
+    public string WebAccessToken { get; set; } = ""; // Legacy setting; no longer used.
+    public string WebPassword { get; set; } = "";
     public int DesktopTranscriptFontSize { get; set; } = 16;
     public int WebTranscriptFontSize { get; set; } = 16;
     public bool DesktopNewestFirst { get; set; }
