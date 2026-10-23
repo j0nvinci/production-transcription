@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ChannelOption> _channels = new();
     private ICollectionView? _view;
     private string? _selectedChannel;
+    private string _search = "";
     private bool _compact;
     private bool _light;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
@@ -33,11 +34,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _view = CollectionViewSource.GetDefaultView(_messages);
-        _view.Filter = entry => entry is ChatMessage msg && (_selectedChannel is null || msg.Source == _selectedChannel);
+        _view.Filter = entry => entry is ChatMessage msg && (_selectedChannel is null || msg.Source == _selectedChannel) && (string.IsNullOrWhiteSpace(_search) || msg.Words.Contains(_search, StringComparison.OrdinalIgnoreCase) || msg.Source.Contains(_search, StringComparison.OrdinalIgnoreCase));
         ChatList.ItemsSource = _view;
         ChannelList.ItemsSource = _channels;
         _settingsWindow = new SettingsWindow();
         _settingsWindow.WebSettingsUpdated += config => { _ = RestartWebViewerAsync(); };
+        _settingsWindow.OperatorSettingsUpdated += () => { ApplyTranscriptPreferences(); _ = RestartWebViewerAsync(); };
         Loaded += async (_, _) => await RestartWebViewerAsync();
         _settingsWindow.SourcesChanged += RefreshChannels;
         RefreshChannels();
@@ -97,10 +99,16 @@ public partial class MainWindow : Window
     private object WebSnapshot() => new
     {
         capturing = _settingsWindow.IsCapturing,
+        settings = new { fontSize = _settingsWindow.WebConfiguration.WebTranscriptFontSize, newestFirst = _settingsWindow.WebConfiguration.WebNewestFirst,
+            autoScroll = _settingsWindow.WebConfiguration.AutoScrollEnabled, highlight = _settingsWindow.WebConfiguration.KeywordHighlightEnabled,
+            keywords = _settingsWindow.WebConfiguration.HighlightKeywords, timestamps = _settingsWindow.WebConfiguration.TimestampsEnabled,
+            pinning = _settingsWindow.WebConfiguration.PinningEnabled, emphasis = _settingsWindow.WebConfiguration.SourceEmphasisEnabled,
+            kiosk = _settingsWindow.WebConfiguration.KioskAvailable, health = _settingsWindow.WebConfiguration.HealthIndicatorsEnabled,
+            presets = _settingsWindow.WebConfiguration.VisibilityPresetsEnabled },
         channels = _settingsWindow.Channels.Where(c => c.Enabled).Select(c => c.Name).ToArray(),
         messages = _messages.Select(m => new
         {
-            source = m.Source, time = m.Time, words = _censor.Censor(m.Words),
+            id = m.Id, pinned = m.Pinned, source = m.Source, time = m.Time, words = _censor.Censor(m.Words),
             partial = m.IsPartial, color = _settingsWindow.ColorForSource(m.Source)
         }).ToArray()
     };
@@ -201,6 +209,44 @@ public partial class MainWindow : Window
         _settingsWindow.SaveTranscriptPreferences();
         ApplyTranscriptPreferences();
     }
+    private void SearchChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _search = SearchBox.Text;
+        _view?.Refresh();
+    }
+    private void JumpToLiveClicked(object sender, RoutedEventArgs e)
+    {
+        var msg = _settingsWindow.WebConfiguration.DesktopNewestFirst ? _messages.FirstOrDefault() : _messages.LastOrDefault();
+        if (msg is not null) ChatList.ScrollIntoView(msg);
+    }
+    private void ClearClicked(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.MessageBox.Show("Clear all transcript messages for every viewer?", "Clear transcript",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        ClearMessages();
+    }
+    private void ClearMessages()
+    {
+        _messages.Clear();
+        _drafts.Clear();
+    }
+    private void DeleteMessage(Guid id)
+    {
+        var msg = _messages.FirstOrDefault(m => m.Id == id);
+        if (msg is null) return;
+        _messages.Remove(msg);
+        if (_drafts.TryGetValue(msg.Source, out var draft) && ReferenceEquals(draft, msg))
+            _drafts.Remove(msg.Source);
+    }
+    private void DeleteClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button { Tag: ChatMessage msg }) DeleteMessage(msg.Id);
+    }
+    private void PinClicked(object sender, RoutedEventArgs e)
+    {
+        if (!_settingsWindow.WebConfiguration.PinningEnabled) return;
+        if (sender is System.Windows.Controls.Button { Tag: ChatMessage msg }) msg.Pinned = !msg.Pinned;
+    }
     private void CompactClicked(object sender, RoutedEventArgs e)
     {
         ApplyCompact(!_compact);
@@ -246,6 +292,9 @@ public partial class MainWindow : Window
     }
     public sealed class ChatMessage : INotifyPropertyChanged
     {
+        public Guid Id { get; } = Guid.NewGuid();
+        private bool _pinned;
+        public bool Pinned { get => _pinned; set { _pinned = value; Changed(); } }
         private static long _nextSequence;
         public long Sequence { get; } = System.Threading.Interlocked.Increment(ref _nextSequence);
         public string Source { get; }
