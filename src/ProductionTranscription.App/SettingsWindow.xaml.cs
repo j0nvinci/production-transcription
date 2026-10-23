@@ -84,11 +84,6 @@ public partial class SettingsWindow : Window
     private sealed record WebInterface(string Id, string Name);
     private void InitializeWebSettings()
     {
-        if (string.IsNullOrWhiteSpace(_settings.WebAccessToken))
-        {
-            _settings.WebAccessToken = WebViewerHost.NewToken();
-            SettingsStore.Save(_settings);
-        }
         WebInterfaceBox.ItemsSource = WebViewerHost.BindAddresses()
             .Select(ip => new WebInterface(ip, ip == "0.0.0.0" ? "All network interfaces (0.0.0.0)" :
                 ip == "127.0.0.1" ? "Localhost only (127.0.0.1)" : ip)).ToList();
@@ -97,13 +92,13 @@ public partial class SettingsWindow : Window
         WebPortBox.Text = _settings.WebPort.ToString();
         WebEnabledBox.IsChecked = _settings.WebEnabled;
         WebAccessBox.SelectedIndex = _settings.WebReadWrite ? 1 : 0;
-        WebTokenBox.Text = _settings.WebAccessToken;
+        WebPasswordBox.Text = _settings.WebPassword;
         UpdateWebStatus();
     }
     private void UpdateWebStatus()
     {
         WebStatus.Text = _settings.WebEnabled
-            ? $"Listener: http://{(_settings.WebBindAddress == "0.0.0.0" ? "<computer-ip>" : _settings.WebBindAddress)}:{_settings.WebPort}/ — access token required"
+            ? $"Listener: http://{(_settings.WebBindAddress == "0.0.0.0" ? "<computer-ip>" : _settings.WebBindAddress)}:{_settings.WebPort}/ — {(_settings.WebPassword.Length == 0 ? "no password" : "password required")}"
             : "Web viewer disabled";
     }
     private void WebSettingsChanged(object sender, RoutedEventArgs e)
@@ -122,13 +117,12 @@ public partial class SettingsWindow : Window
         UpdateWebStatus();
         WebSettingsUpdated?.Invoke(_settings);
     }
-    private void RegenerateWebToken(object sender, RoutedEventArgs e)
+    private void WebPasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show("Regenerate web token? All connected viewers will lose access.",
-            "Regenerate token", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        _settings.WebAccessToken = WebViewerHost.NewToken();
-        WebTokenBox.Text = _settings.WebAccessToken;
+        if (!_initialized || _settings.WebPassword == WebPasswordBox.Text) return;
+        _settings.WebPassword = WebPasswordBox.Text;
         SaveSettings();
+        UpdateWebStatus();
         WebSettingsUpdated?.Invoke(_settings);
     }
     public void SetWebError(string message) => WebStatus.Text = message;
