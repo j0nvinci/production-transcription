@@ -124,7 +124,7 @@ public partial class MainWindow : Window
                     });
                 });
             _settingsWindow.SetWebError(_settingsWindow.WebConfiguration.WebEnabled
-                ? "Web listener active — token required to connect" : "Web viewer disabled");
+                ? "Web listener active — authentication follows web password setting" : "Web viewer disabled");
         }
         catch (Exception ex)
         {
