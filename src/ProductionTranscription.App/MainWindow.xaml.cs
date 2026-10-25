@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     private readonly SettingsWindow _settingsWindow;
     private readonly Services.WebViewerHost _webViewer = new();
     private readonly Services.TranscriptCensor _censor = new();
-    private readonly ObservableCollection<ChatMessage> _messages = new();
+    private ObservableCollection<ChatMessage> _messages = new();
     private readonly ObservableCollection<ChannelOption> _channels = new();
     private ICollectionView? _view;
     private string? _selectedChannel;
@@ -267,8 +267,22 @@ public partial class MainWindow : Window
     }
     private void ClearMessages()
     {
-        _messages.Clear();
+        // Detach the old collection instead of issuing a potentially expensive Reset
+        // against hundreds of live WPF item containers and a sorted collection view.
+        // The new collection is empty, so the UI and web snapshots immediately agree.
+        var fresh = new ObservableCollection<ChatMessage>();
+        var freshView = CollectionViewSource.GetDefaultView(fresh);
+        freshView.Filter = entry => entry is ChatMessage msg &&
+            (_selectedChannel is null || msg.Source == _selectedChannel) &&
+            (string.IsNullOrWhiteSpace(_search) ||
+             msg.Words.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+             msg.Source.Contains(_search, StringComparison.OrdinalIgnoreCase));
+        _messages = fresh;
+        _view = freshView;
         _drafts.Clear();
+        ChatList.ItemsSource = null;
+        ChatList.ItemsSource = freshView;
+        ApplyTranscriptPreferences();
     }
     private void DeleteMessage(Guid id)
     {
