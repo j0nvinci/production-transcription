@@ -10,6 +10,7 @@ public sealed class SourceConfig
     public int InputNumber { get; set; } = 1;
     public string WasapiDeviceId { get; set; } = "";
     public bool Enabled { get; set; } = true;
+    public bool DetectClickTempo { get; set; }
     public double GainDb { get; set; } = 0;
     public double GateDbfs { get; set; } = -50;
     public string ColorHex { get; set; } = "";
