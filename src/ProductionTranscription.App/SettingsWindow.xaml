@@ -73,18 +73,37 @@
       <ComboBoxItem Content="Read only (viewer)"/>
       <ComboBoxItem Content="Read/write (start and stop capture)"/>
      </ComboBox>
-     <TextBlock Text="Access token (required)" Margin="0,0,0,5"/>
-     <DockPanel Margin="0,0,0,8">
-      <Button DockPanel.Dock="Right" Content="Regenerate" Click="RegenerateWebToken" Padding="8,3"/>
-      <TextBox x:Name="WebTokenBox" IsReadOnly="True" Margin="0,0,6,0"/>
-     </DockPanel>
+     <TextBlock Text="Web password (optional — leave blank for unrestricted access)" Margin="0,0,0,5"/>
+     <TextBox x:Name="WebPasswordBox" LostFocus="WebPasswordChanged" Margin="0,0,0,8" ToolTip="Blank means no password. Use only on trusted networks."/>
      <TextBlock x:Name="WebStatus" TextWrapping="Wrap" Foreground="#92A7BD" FontSize="12"/>
      <TextBlock Text="HTTP is unencrypted. Use only on trusted LAN/VPN networks; never forward this port to the Internet." TextWrapping="Wrap" Foreground="#E7B87D" FontSize="11" Margin="0,8,0,0"/>
     </StackPanel>
    </Border>
    <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
+    <StackPanel>
+     <TextBlock Text="03   OPERATOR EXPERIENCE" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,12"/>
+     <TextBlock Text="Desktop transcript font size (10–36)" Margin="0,0,0,4"/>
+     <TextBox x:Name="DesktopFontBox" Width="70" HorizontalAlignment="Left" LostFocus="OperatorSettingsChanged" Margin="0,0,0,8"/>
+     <CheckBox x:Name="DesktopNewestBox" Content="Desktop: newest messages first" Click="OperatorSettingsChanged" Margin="0,0,0,8"/>
+     <TextBlock Text="Web viewer default font size (10–36)" Margin="0,0,0,4"/>
+     <TextBox x:Name="WebFontBox" Width="70" HorizontalAlignment="Left" LostFocus="OperatorSettingsChanged" Margin="0,0,0,8"/>
+     <CheckBox x:Name="WebNewestBox" Content="Web: newest messages first by default" Click="OperatorSettingsChanged" Margin="0,0,0,10"/>
+     <CheckBox x:Name="AutoScrollBox" Content="Auto-scroll / Jump to Live" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="KeywordBox" Content="Keyword highlighting" Click="OperatorSettingsChanged"/>
+     <TextBlock Text="Highlighted words or phrases (one per line)" Margin="0,7,0,4"/>
+     <TextBox x:Name="KeywordListBox" AcceptsReturn="True" TextWrapping="Wrap" Height="75" VerticalScrollBarVisibility="Auto" LostFocus="OperatorSettingsChanged" Margin="0,0,0,9"/>
+     <CheckBox x:Name="SpeechBox" Content="Speech activity indicators" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="TimestampsBox" Content="Show timestamps" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="PinningBox" Content="Message pinning" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="EmphasisBox" Content="Per-source text emphasis" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="KioskBox" Content="Allow presentation / kiosk mode" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="HealthBox" Content="Health indicators" Click="OperatorSettingsChanged"/>
+     <CheckBox x:Name="PresetsBox" Content="Source visibility presets" Click="OperatorSettingsChanged"/>
+    </StackPanel>
+   </Border>
+   <Border Background="#141D2A" CornerRadius="14" BorderBrush="#2C3A4D" BorderThickness="1" Padding="16" Margin="0,0,0,14">
    <StackPanel>
-   <TextBlock Text="03   RECOGNITION ENGINE" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
+   <TextBlock Text="04   RECOGNITION ENGINE" FontWeight="Bold" Foreground="#59E0C0" FontSize="11" Margin="0,0,0,13"/>
    <DockPanel Margin="0,0,0,12">
     <Button DockPanel.Dock="Right" Content="Refresh models" Click="RefreshModelsClicked" Padding="8,4" Margin="8,0,0,0"/>
     <StackPanel>

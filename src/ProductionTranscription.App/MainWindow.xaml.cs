@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ChannelOption> _channels = new();
     private ICollectionView? _view;
     private string? _selectedChannel;
+    private string _search = "";
     private bool _compact;
     private bool _light;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
@@ -33,16 +34,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _view = CollectionViewSource.GetDefaultView(_messages);
-        _view.Filter = entry => entry is ChatMessage msg && (_selectedChannel is null || msg.Source == _selectedChannel);
+        _view.Filter = entry => entry is ChatMessage msg && (_selectedChannel is null || msg.Source == _selectedChannel) && (string.IsNullOrWhiteSpace(_search) || msg.Words.Contains(_search, StringComparison.OrdinalIgnoreCase) || msg.Source.Contains(_search, StringComparison.OrdinalIgnoreCase));
         ChatList.ItemsSource = _view;
         ChannelList.ItemsSource = _channels;
         _settingsWindow = new SettingsWindow();
         _settingsWindow.WebSettingsUpdated += config => { _ = RestartWebViewerAsync(); };
+        _settingsWindow.OperatorSettingsUpdated += () => { ApplyTranscriptPreferences(); _ = RestartWebViewerAsync(); };
         Loaded += async (_, _) => await RestartWebViewerAsync();
         _settingsWindow.SourcesChanged += RefreshChannels;
         RefreshChannels();
         ApplyTheme(_settingsWindow.LightTheme);
         ApplyCompact(_settingsWindow.CompactView);
+        ApplyTranscriptPreferences();
         _settingsWindow.SourceColorChanged += (name, hex) =>
         {
             _sourceColors.Remove(name);
@@ -66,7 +69,7 @@ public partial class MainWindow : Window
                 _messages.Add(item);
             }
             else item.Words = words;
-            if (_selectedChannel is null || _selectedChannel == source) ChatList.ScrollIntoView(item);
+            if (_selectedChannel is null || _selectedChannel == source) if (_settingsWindow.WebConfiguration.AutoScrollEnabled) ChatList.ScrollIntoView(item);
         };
         _settingsWindow.TranscriptReceived += (source, words) =>
         {
@@ -82,7 +85,7 @@ public partial class MainWindow : Window
                 _messages.Add(item);
             }
             while (_messages.Count > 500) _messages.RemoveAt(0);
-            ChatList.ScrollIntoView(item);
+            if (_settingsWindow.WebConfiguration.AutoScrollEnabled) ChatList.ScrollIntoView(item);
         };
         _settingsWindow.StatusChanged += message => StatusText.Text = message;
         _statusTimer.Tick += (_, _) =>
@@ -91,15 +94,22 @@ public partial class MainWindow : Window
             StopButton.IsEnabled = _settingsWindow.IsCapturing;
         };
         _statusTimer.Start();
+        PreviewKeyDown += OperatorKeyDown;
         Closing += (_, _) => { _statusTimer.Stop(); _ = _webViewer.StopAsync(); _settingsWindow.Shutdown(); };
     }
     private object WebSnapshot() => new
     {
         capturing = _settingsWindow.IsCapturing,
+        settings = new { fontSize = _settingsWindow.WebConfiguration.WebTranscriptFontSize, newestFirst = _settingsWindow.WebConfiguration.WebNewestFirst,
+            autoScroll = _settingsWindow.WebConfiguration.AutoScrollEnabled, highlight = _settingsWindow.WebConfiguration.KeywordHighlightEnabled,
+            keywords = _settingsWindow.WebConfiguration.HighlightKeywords, timestamps = _settingsWindow.WebConfiguration.TimestampsEnabled,
+            pinning = _settingsWindow.WebConfiguration.PinningEnabled, emphasis = _settingsWindow.WebConfiguration.SourceEmphasisEnabled,
+            kiosk = _settingsWindow.WebConfiguration.KioskAvailable, health = _settingsWindow.WebConfiguration.HealthIndicatorsEnabled,
+            presets = _settingsWindow.WebConfiguration.VisibilityPresetsEnabled },
         channels = _settingsWindow.Channels.Where(c => c.Enabled).Select(c => c.Name).ToArray(),
         messages = _messages.Select(m => new
         {
-            source = m.Source, time = m.Time, words = _censor.Censor(m.Words),
+            id = m.Id, pinned = m.Pinned, source = m.Source, time = m.Time, words = _censor.Censor(m.Words),
             partial = m.IsPartial, color = _settingsWindow.ColorForSource(m.Source)
         }).ToArray()
     };
@@ -121,9 +131,22 @@ public partial class MainWindow : Window
                             _drafts.Clear();
                         }
                     });
+                },
+                async (action, id) =>
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (action == "clear") ClearMessages();
+                        else if (id.HasValue && action == "delete") DeleteMessage(id.Value);
+                        else if (id.HasValue && action == "pin" && _settingsWindow.WebConfiguration.PinningEnabled)
+                        {
+                            var msg = _messages.FirstOrDefault(m => m.Id == id.Value);
+                            if (msg is not null) msg.Pinned = !msg.Pinned;
+                        }
+                    });
                 });
             _settingsWindow.SetWebError(_settingsWindow.WebConfiguration.WebEnabled
-                ? "Web listener active — token required to connect" : "Web viewer disabled");
+                ? "Web listener active — authentication follows web password setting" : "Web viewer disabled");
         }
         catch (Exception ex)
         {
@@ -175,6 +198,95 @@ public partial class MainWindow : Window
         foreach (var item in _drafts.Values.ToArray()) _messages.Remove(item);
         _drafts.Clear();
     }
+    private void ApplyTranscriptPreferences()
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        ChatList.FontSize = Math.Clamp(settings.DesktopTranscriptFontSize, 10, 36);
+        _view!.SortDescriptions.Clear();
+        _view.SortDescriptions.Add(new SortDescription(nameof(ChatMessage.Sequence),
+            settings.DesktopNewestFirst ? ListSortDirection.Descending : ListSortDirection.Ascending));
+        OrderButton.Content = settings.DesktopNewestFirst ? "Newest ↑" : "Newest ↓";
+    }
+    private void FontSmallerClicked(object sender, RoutedEventArgs e) => ChangeFont(-1);
+    private void FontLargerClicked(object sender, RoutedEventArgs e) => ChangeFont(1);
+    private void ChangeFont(int delta)
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        settings.DesktopTranscriptFontSize = Math.Clamp(settings.DesktopTranscriptFontSize + delta, 10, 36);
+        _settingsWindow.SaveTranscriptPreferences();
+        ApplyTranscriptPreferences();
+    }
+    private void OrderClicked(object sender, RoutedEventArgs e)
+    {
+        var settings = _settingsWindow.WebConfiguration;
+        settings.DesktopNewestFirst = !settings.DesktopNewestFirst;
+        _settingsWindow.SaveTranscriptPreferences();
+        ApplyTranscriptPreferences();
+    }
+    private void OperatorKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        if (!ctrl) return;
+        if (e.Key == System.Windows.Input.Key.F)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.OemPlus || e.Key == System.Windows.Input.Key.Add)
+        {
+            ChangeFont(1);
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.OemMinus || e.Key == System.Windows.Input.Key.Subtract)
+        {
+            ChangeFont(-1);
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.Home)
+        {
+            JumpToLiveClicked(sender, e);
+            e.Handled = true;
+        }
+    }
+    private void SearchChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _search = SearchBox.Text;
+        _view?.Refresh();
+    }
+    private void JumpToLiveClicked(object sender, RoutedEventArgs e)
+    {
+        var msg = _settingsWindow.WebConfiguration.DesktopNewestFirst ? _messages.FirstOrDefault() : _messages.LastOrDefault();
+        if (msg is not null) ChatList.ScrollIntoView(msg);
+    }
+    private void ClearClicked(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.MessageBox.Show("Clear all transcript messages for every viewer?", "Clear transcript",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        ClearMessages();
+    }
+    private void ClearMessages()
+    {
+        _messages.Clear();
+        _drafts.Clear();
+    }
+    private void DeleteMessage(Guid id)
+    {
+        var msg = _messages.FirstOrDefault(m => m.Id == id);
+        if (msg is null) return;
+        _messages.Remove(msg);
+        if (_drafts.TryGetValue(msg.Source, out var draft) && ReferenceEquals(draft, msg))
+            _drafts.Remove(msg.Source);
+    }
+    private void DeleteClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button { Tag: ChatMessage msg }) DeleteMessage(msg.Id);
+    }
+    private void PinClicked(object sender, RoutedEventArgs e)
+    {
+        if (!_settingsWindow.WebConfiguration.PinningEnabled) return;
+        if (sender is System.Windows.Controls.Button { Tag: ChatMessage msg }) msg.Pinned = !msg.Pinned;
+    }
     private void CompactClicked(object sender, RoutedEventArgs e)
     {
         ApplyCompact(!_compact);
@@ -220,6 +332,11 @@ public partial class MainWindow : Window
     }
     public sealed class ChatMessage : INotifyPropertyChanged
     {
+        public Guid Id { get; } = Guid.NewGuid();
+        private bool _pinned;
+        public bool Pinned { get => _pinned; set { _pinned = value; Changed(); } }
+        private static long _nextSequence;
+        public long Sequence { get; } = System.Threading.Interlocked.Increment(ref _nextSequence);
         public string Source { get; }
         public string Time { get; }
         private Brush _accent;

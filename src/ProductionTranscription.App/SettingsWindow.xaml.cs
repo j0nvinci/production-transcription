@@ -35,7 +35,14 @@ public partial class SettingsWindow : Window
     public event Action<string, string>? SourceColorChanged;
     public event Action? SourcesChanged;
     public event Action<AppSettings>? WebSettingsUpdated;
+    public event Action? OperatorSettingsUpdated;
     public AppSettings WebConfiguration => _settings;
+    public void SaveTranscriptPreferences()
+    {
+        DesktopFontBox.Text = _settings.DesktopTranscriptFontSize.ToString();
+        DesktopNewestBox.IsChecked = _settings.DesktopNewestFirst;
+        SaveSettings();
+    }
     public bool LightTheme { get => _settings.LightTheme; set { _settings.LightTheme = value; SaveSettings(); } }
     public bool CompactView { get => _settings.CompactView; set { _settings.CompactView = value; SaveSettings(); } }
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _muted = new();
@@ -60,6 +67,7 @@ public partial class SettingsWindow : Window
         DataContext = this;
         RefreshSourceMeters();
         InitializeWebSettings();
+        InitializeOperatorSettings();
         _initialized = true;
         RefreshDevices();
         RefreshModels();
@@ -80,14 +88,53 @@ public partial class SettingsWindow : Window
             else { StopCapture(); SaveSettings(); }
         };
     }
+    private void InitializeOperatorSettings()
+    {
+        DesktopFontBox.Text = _settings.DesktopTranscriptFontSize.ToString();
+        WebFontBox.Text = _settings.WebTranscriptFontSize.ToString();
+        DesktopNewestBox.IsChecked = _settings.DesktopNewestFirst;
+        WebNewestBox.IsChecked = _settings.WebNewestFirst;
+        AutoScrollBox.IsChecked = _settings.AutoScrollEnabled;
+        KeywordBox.IsChecked = _settings.KeywordHighlightEnabled;
+        KeywordListBox.Text = string.Join(Environment.NewLine, _settings.HighlightKeywords ?? new());
+        SpeechBox.IsChecked = _settings.SpeechActivityEnabled;
+        TimestampsBox.IsChecked = _settings.TimestampsEnabled;
+        PinningBox.IsChecked = _settings.PinningEnabled;
+        EmphasisBox.IsChecked = _settings.SourceEmphasisEnabled;
+        KioskBox.IsChecked = _settings.KioskAvailable;
+        HealthBox.IsChecked = _settings.HealthIndicatorsEnabled;
+        PresetsBox.IsChecked = _settings.VisibilityPresetsEnabled;
+    }
+    private void OperatorSettingsChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        if (!int.TryParse(DesktopFontBox.Text, out int desktop) || desktop is < 10 or > 36 ||
+            !int.TryParse(WebFontBox.Text, out int web) || web is < 10 or > 36)
+        {
+            MessageBox.Show("Font sizes must be between 10 and 36.", "Invalid font size");
+            return;
+        }
+        _settings.DesktopTranscriptFontSize = desktop;
+        _settings.WebTranscriptFontSize = web;
+        _settings.DesktopNewestFirst = DesktopNewestBox.IsChecked == true;
+        _settings.WebNewestFirst = WebNewestBox.IsChecked == true;
+        _settings.AutoScrollEnabled = AutoScrollBox.IsChecked == true;
+        _settings.KeywordHighlightEnabled = KeywordBox.IsChecked == true;
+        _settings.HighlightKeywords = KeywordListBox.Text.Split(new[] { "\r\n", "\n" },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _settings.SpeechActivityEnabled = SpeechBox.IsChecked == true;
+        _settings.TimestampsEnabled = TimestampsBox.IsChecked == true;
+        _settings.PinningEnabled = PinningBox.IsChecked == true;
+        _settings.SourceEmphasisEnabled = EmphasisBox.IsChecked == true;
+        _settings.KioskAvailable = KioskBox.IsChecked == true;
+        _settings.HealthIndicatorsEnabled = HealthBox.IsChecked == true;
+        _settings.VisibilityPresetsEnabled = PresetsBox.IsChecked == true;
+        SaveSettings();
+        OperatorSettingsUpdated?.Invoke();
+    }
     private sealed record WebInterface(string Id, string Name);
     private void InitializeWebSettings()
     {
-        if (string.IsNullOrWhiteSpace(_settings.WebAccessToken))
-        {
-            _settings.WebAccessToken = WebViewerHost.NewToken();
-            SettingsStore.Save(_settings);
-        }
         WebInterfaceBox.ItemsSource = WebViewerHost.BindAddresses()
             .Select(ip => new WebInterface(ip, ip == "0.0.0.0" ? "All network interfaces (0.0.0.0)" :
                 ip == "127.0.0.1" ? "Localhost only (127.0.0.1)" : ip)).ToList();
@@ -96,13 +143,13 @@ public partial class SettingsWindow : Window
         WebPortBox.Text = _settings.WebPort.ToString();
         WebEnabledBox.IsChecked = _settings.WebEnabled;
         WebAccessBox.SelectedIndex = _settings.WebReadWrite ? 1 : 0;
-        WebTokenBox.Text = _settings.WebAccessToken;
+        WebPasswordBox.Text = _settings.WebPassword;
         UpdateWebStatus();
     }
     private void UpdateWebStatus()
     {
         WebStatus.Text = _settings.WebEnabled
-            ? $"Listener: http://{(_settings.WebBindAddress == "0.0.0.0" ? "<computer-ip>" : _settings.WebBindAddress)}:{_settings.WebPort}/ — access token required"
+            ? $"Listener: http://{(_settings.WebBindAddress == "0.0.0.0" ? "<computer-ip>" : _settings.WebBindAddress)}:{_settings.WebPort}/ — {(_settings.WebPassword.Length == 0 ? "no password" : "password required")}"
             : "Web viewer disabled";
     }
     private void WebSettingsChanged(object sender, RoutedEventArgs e)
@@ -121,13 +168,12 @@ public partial class SettingsWindow : Window
         UpdateWebStatus();
         WebSettingsUpdated?.Invoke(_settings);
     }
-    private void RegenerateWebToken(object sender, RoutedEventArgs e)
+    private void WebPasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show("Regenerate web token? All connected viewers will lose access.",
-            "Regenerate token", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        _settings.WebAccessToken = WebViewerHost.NewToken();
-        WebTokenBox.Text = _settings.WebAccessToken;
+        if (!_initialized || _settings.WebPassword == WebPasswordBox.Text) return;
+        _settings.WebPassword = WebPasswordBox.Text;
         SaveSettings();
+        UpdateWebStatus();
         WebSettingsUpdated?.Invoke(_settings);
     }
     public void SetWebError(string message) => WebStatus.Text = message;
