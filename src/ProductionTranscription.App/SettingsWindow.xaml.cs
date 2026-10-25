@@ -26,6 +26,7 @@ public partial class SettingsWindow : Window
     public bool IsWasapiMode => _settings.Backend == AudioBackend.Wasapi;
     private readonly DispatcherTimer _meterTimer = new() { Interval = TimeSpan.FromMilliseconds(70) };
     private List<SourceMeter> _meters = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SourceConfig, ClickTempoDetector> _clickDetectors = new();
     private bool _capturing;
     private bool _starting;
     private ITranscriptionSession? _transcription;
@@ -79,8 +80,13 @@ public partial class SettingsWindow : Window
         {
             StatusChanged?.Invoke(CaptureStatus.Text);
             foreach (var meter in _meters)
+            {
                 meter.Level = _capturing && meter.Source.Enabled ?
                     Math.Max(Math.Min(100, _capture.TakePeak(meter.Source) * Math.Pow(10, meter.Source.GainDb / 20.0) * 100), meter.Level * .65) : 0;
+                meter.TempoDisplay = _capturing && meter.Source.DetectClickTempo && _clickDetectors.TryGetValue(meter.Source, out var detector)
+                    ? detector.Bpm > 0 ? $"{detector.Bpm:0.0} BPM • {detector.Status}" : detector.Status
+                    : meter.Source.DetectClickTempo ? "Ready to detect" : "";
+            }
         };
         Closing += (_, e) =>
         {
@@ -640,12 +646,22 @@ public partial class SettingsWindow : Window
     }
     private void OnSourceAudio(SourceConfig source, float[] samples, int sampleRate)
     {
+        if (source.DetectClickTempo)
+            _clickDetectors.GetOrAdd(source, _ => new ClickTempoDetector()).Process(samples, sampleRate);
         if (!IsMuted(source.Name)) _transcription?.Submit(source, samples, sampleRate);
+    }
+    private void ClickDetectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        SaveSettings();
+        foreach (var meter in _meters)
+            if (!meter.Source.DetectClickTempo) _clickDetectors.TryRemove(meter.Source, out _);
     }
     private void StopCaptureClicked(object sender, RoutedEventArgs e) => StopCapture();
     private void StopCapture()
     {
         _meterTimer.Stop();
+        _clickDetectors.Clear();
         _capture.Stop();
         _capture.SourceAudioAvailable -= OnSourceAudio;
         _transcription?.Dispose();
