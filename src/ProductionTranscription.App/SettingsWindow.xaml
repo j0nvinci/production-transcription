@@ -167,6 +167,12 @@
            <TextBox Width="55" Foreground="#F1F6FD" Text="{Binding Source.InputNumber, Mode=OneWay}"
                     TextChanged="SourceInputTextChanged" LostFocus="SourceInputLostFocus"/>
           </WrapPanel>
+          <WrapPanel Margin="0,8,0,0">
+           <CheckBox Content="Detect click / BPM" IsChecked="{Binding Source.DetectClickTempo, Mode=TwoWay}"
+                     Checked="ClickDetectionChanged" Unchecked="ClickDetectionChanged"
+                     ToolTip="Analyze the same mono audio used for guide transcription. Speech may interfere."/>
+           <TextBlock Text="{Binding TempoDisplay}" Foreground="#59E0C0" FontWeight="SemiBold" Margin="16,0,0,0"/>
+          </WrapPanel>
           <WrapPanel Margin="0,14,0,0">
            <TextBlock Text="WASAPI device" VerticalAlignment="Center" Margin="0,0,10,0"/>
            <ComboBox Width="290" DisplayMemberPath="Name" SelectedValuePath="Id"
