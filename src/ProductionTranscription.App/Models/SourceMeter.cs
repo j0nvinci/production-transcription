@@ -15,6 +15,12 @@ public sealed class SourceMeter : INotifyPropertyChanged
         get => _validationMessage;
         set { if (_validationMessage == value) return; _validationMessage = value; OnPropertyChanged(); }
     }
+    private string _tempoDisplay = "";
+    public string TempoDisplay
+    {
+        get => _tempoDisplay;
+        set { if (_tempoDisplay == value) return; _tempoDisplay = value; OnPropertyChanged(); }
+    }
     private double _level;
     public double Level
     {
